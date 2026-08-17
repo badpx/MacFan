@@ -160,8 +160,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Two-line widget: value over label (same size for `uniformFont`).
     /// Laid out manually inside a plain container — NSStackView's own
     /// constraints would fight the width anchors. Width is capped at 70pt
-    /// per widget; the network widget gets a fixed width so digit-count
-    /// changes never resize the menu bar.
+    /// per widget; the network widget gets a fixed width with left-aligned
+    /// text so digit-count changes extend rightward without shifting the
+    /// text away from the separator.
     private func makeMetricView(_ reading: CompactReading) -> NSView {
         let topFont: NSFont
         let bottomFont: NSFont
@@ -182,12 +183,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let width = reading.uniformFont ? CGFloat(48) : min(70, naturalWidth)
         let height = ceil(topSize.height + bottomSize.height)
 
+        let topX = reading.uniformFont ? CGFloat(0) : (width - topSize.width) / 2
+        let bottomX = reading.uniformFont ? CGFloat(0) : (width - bottomSize.width) / 2
+
         let view = PassThroughView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        topLabel.frame = NSRect(x: (width - topSize.width) / 2,
+        topLabel.frame = NSRect(x: topX,
                                 y: bottomSize.height,
                                 width: topSize.width,
                                 height: topSize.height)
-        bottomLabel.frame = NSRect(x: (width - bottomSize.width) / 2,
+        bottomLabel.frame = NSRect(x: bottomX,
                                    y: 0,
                                    width: bottomSize.width,
                                    height: bottomSize.height)

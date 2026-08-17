@@ -2,11 +2,20 @@ import Foundation
 
 /// Network throughput (down/up) computed from getifaddrs byte counters
 /// over physical interfaces (en*), sampled between two calls.
+///
+/// Some VPN/filter drivers (e.g. CorpLink) swallow inbound packets before
+/// the interface byte counters are incremented, leaving rx stuck at 0.
+/// When outbound traffic clearly flows while cumulative inbound stays at
+/// exactly zero, the inbound counter is considered broken and the
+/// download rate is shown as "--" instead of a misleading "0B".
 final class NetworkMonitor: MetricProvider {
 
     let id = "network"
 
     private var previous: (rx: UInt64, tx: UInt64, time: Date)?
+    private var cumulativeRx: UInt64 = 0
+    private var cumulativeTx: UInt64 = 0
+    private var inboundBroken = false
 
     func sample() -> MetricReading {
         guard let counters = readCounters() else {
@@ -20,12 +29,26 @@ final class NetworkMonitor: MetricProvider {
         let elapsed = now.timeIntervalSince(previous.time)
         guard elapsed > 0 else { return MetricReading(menu: "网络: --") }
 
-        let down = Double(counters.rx &- previous.rx) / elapsed
-        let up = Double(counters.tx &- previous.tx) / elapsed
+        let rxDelta = counters.rx &- previous.rx
+        let txDelta = counters.tx &- previous.tx
+        cumulativeRx &+= rxDelta
+        cumulativeTx &+= txDelta
+        if rxDelta > 0 {
+            inboundBroken = false
+        } else if cumulativeRx == 0 && cumulativeTx > 512 * 1024 {
+            inboundBroken = true
+        }
+
+        let down = Double(rxDelta) / elapsed
+        let up = Double(txDelta) / elapsed
+        let downText = Self.format(rate: down)
+        let downCompact = Self.compactFormat(rate: down)
         return MetricReading(
-            menu: String(format: "网络: ↓ %@ ↑ %@", Self.format(rate: down), Self.format(rate: up)),
+            menu: String(format: "网络: ↓ %@ ↑ %@",
+                         inboundBroken ? "--" : downText,
+                         Self.format(rate: up)),
             compact: CompactReading(top: "↑\(Self.compactFormat(rate: up))",
-                                    bottom: "↓\(Self.compactFormat(rate: down))",
+                                    bottom: inboundBroken ? "↓--" : "↓\(downCompact)",
                                     uniformFont: true)
         )
     }
