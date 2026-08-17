@@ -7,7 +7,7 @@ import Foundation
 /// the interface byte counters are incremented, leaving rx stuck at 0.
 /// When outbound traffic clearly flows while cumulative inbound stays at
 /// exactly zero, the inbound counter is considered broken and the
-/// download rate is shown as "--" instead of a misleading "0B".
+/// download rate is shown as "--" instead of a misleading "0.0K".
 final class NetworkMonitor: MetricProvider {
 
     let id = "network"
@@ -78,30 +78,28 @@ final class NetworkMonitor: MetricProvider {
         return (rx, tx)
     }
 
+    /// Decimal units (1K = 1000B, 1M = 1000K, 1G = 1000M), K minimum:
+    /// sub-K rates are shown as fractions, e.g. 43 B/s -> "0.0K".
     private static func format(rate: Double) -> String {
         switch rate {
-        case ..<1024:
-            return String(format: "%.0f B/s", rate)
-        case ..<(1024 * 1024):
-            return String(format: "%.1f KB/s", rate / 1024)
+        case ..<1_000_000:
+            return String(format: "%.1f KB/s", rate / 1000)
         default:
-            return String(format: "%.1f MB/s", rate / 1_048_576)
+            return String(format: "%.1f MB/s", rate / 1_000_000)
         }
     }
 
-    /// Short form for the menu bar, e.g. "43.7K", "6.1M", "128B".
+    /// Short form for the menu bar, e.g. "0.5K", "43.7K", "6.1M".
     /// Keeps the integer part ≤ 3 digits so the number is at most
     /// 6 chars ("999.9X"), which the menu bar width is sized for.
     private static func compactFormat(rate: Double) -> String {
         switch rate {
-        case ..<1024:
-            return String(format: "%.0fB", rate)
-        case ..<(1024 * 1024):
-            return String(format: "%.1fK", rate / 1024)
-        case ..<(1024 * 1024 * 1024):
-            return String(format: "%.1fM", rate / 1_048_576)
+        case ..<1_000_000:
+            return String(format: "%.1fK", rate / 1000)
+        case ..<1_000_000_000:
+            return String(format: "%.1fM", rate / 1_000_000)
         default:
-            return String(format: "%.1fG", rate / 1_073_741_824)
+            return String(format: "%.1fG", rate / 1_000_000_000)
         }
     }
 }
