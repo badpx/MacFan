@@ -19,7 +19,8 @@ final class TemperatureMonitor: MetricProvider {
         }
         return MetricReading(menu: String(format: "%@: %.1f °C", L10n.tr(.temperature), temperature),
                              compact: CompactReading(top: String(format: "%.0f°", temperature),
-                                                     bottom: "TEMP"))
+                                                     bottom: "TEMP",
+                                                     topWidthTemplate: "100°"))
     }
 
     private func hidTemperature() -> Double? {

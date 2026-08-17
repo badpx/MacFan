@@ -32,6 +32,7 @@ final class FanMonitor: MetricProvider {
         let rpm = rpms.max() ?? 0
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f", rpm),
-                                                     bottom: "RPM"))
+                                                     bottom: "RPM",
+                                                     topWidthTemplate: "9999"))
     }
 }

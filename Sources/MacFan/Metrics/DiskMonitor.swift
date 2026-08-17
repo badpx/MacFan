@@ -31,6 +31,7 @@ final class DiskMonitor: MetricProvider {
                           percent)
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
-                                                     bottom: "SSD"))
+                                                     bottom: "SSD",
+                                                     topWidthTemplate: "100%"))
     }
 }

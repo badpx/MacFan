@@ -3,15 +3,21 @@ import Foundation
 /// Short two-line form shown in the menu bar: a value line and a label
 /// line (e.g. "16%" over "CPU"). `uniformFont` keeps both lines at the
 /// same size (used by the network widget: up over down).
+/// `topWidthTemplate` is a worst-case string (e.g. "100%") used to give
+/// the widget a fixed width, so the menu bar does not resize as the
+/// value's digit count changes.
 struct CompactReading {
     let top: String
     let bottom: String
     let uniformFont: Bool
+    let topWidthTemplate: String?
 
-    init(top: String, bottom: String, uniformFont: Bool = false) {
+    init(top: String, bottom: String, uniformFont: Bool = false,
+         topWidthTemplate: String? = nil) {
         self.top = top
         self.bottom = bottom
         self.uniformFont = uniformFont
+        self.topWidthTemplate = topWidthTemplate
     }
 }
 

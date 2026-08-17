@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var top: String
             var bottom: String
             var uniformFont: Bool
+            var topWidthTemplate: String?
         }
 
         var parts: [Part] = []
@@ -24,15 +25,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         /// y = 0 at the top, so "top" text really draws on top.
         override var isFlipped: Bool { true }
 
-        static let topFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-        static let bottomFont = NSFont.systemFont(ofSize: 6.5, weight: .regular)
-        static let uniformFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)
-        static let separatorFont = NSFont.systemFont(ofSize: 13, weight: .ultraLight)
+        static let topFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        static let bottomFont = NSFont.systemFont(ofSize: 7.5, weight: .regular)
+        static let uniformFont = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+        static let separatorFont = NSFont.systemFont(ofSize: 14, weight: .ultraLight)
         static let separatorWidth: CGFloat = 12
         static let maxWidgetWidth: CGFloat = 70
         /// Fixed width for the network widget: worst case "↑999.9M"
-        /// measures ~37.2pt in `uniformFont`, rounded up.
-        static let uniformWidgetWidth: CGFloat = 38
+        /// measures ~41.8pt in `uniformFont`, rounded up.
+        static let uniformWidgetWidth: CGFloat = 42
 
         /// (x origin, width) per part, separators included implicitly.
         private var origins: [CGFloat] = []
@@ -52,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if part.uniformFont {
                     width = Self.uniformWidgetWidth
                 } else {
-                    let topWidth = Self.measure(part.top, font: Self.topFont)
+                    let topWidth = Self.measure(part.topWidthTemplate ?? part.top, font: Self.topFont)
                     let bottomWidth = Self.measure(part.bottom, font: Self.bottomFont)
                     width = min(Self.maxWidgetWidth, ceil(max(topWidth, bottomWidth)))
                 }
@@ -87,10 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                              align: .left)
                 } else {
                     drawText(part.top, font: Self.topFont, color: color,
-                             in: NSRect(x: origin, y: 2, width: width, height: 12),
+                             in: NSRect(x: origin, y: 1, width: width, height: 14),
                              align: .center)
                     drawText(part.bottom, font: Self.bottomFont, color: color,
-                             in: NSRect(x: origin, y: 14, width: width, height: 8),
+                             in: NSRect(x: origin, y: 15, width: width, height: 9),
                              align: .center)
                 }
             }
@@ -261,7 +262,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         view.parts = parts.map {
-            WidgetsView.Part(top: $0.top, bottom: $0.bottom, uniformFont: $0.uniformFont)
+            WidgetsView.Part(top: $0.top, bottom: $0.bottom, uniformFont: $0.uniformFont,
+                             topWidthTemplate: $0.topWidthTemplate)
         }
         let width = view.relayout()
 
