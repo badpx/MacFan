@@ -140,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NetworkMonitor(),
     ]
     private var metricItems: [NSMenuItem] = []
+    private var loginMenuItem: NSMenuItem!
     /// Latest reading per provider id, refreshed every timer tick.
     private var readings: [String: MetricReading] = [:]
 
@@ -168,16 +169,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let loginItem = NSMenuItem(title: "开机自启动",
+        let loginItem = NSMenuItem(title: L10n.tr(.launchAtLogin),
                                    action: #selector(toggleLaunchAtLogin),
                                    keyEquivalent: "")
         loginItem.target = self
         loginItem.state = LoginItem.isEnabled ? .on : .off
         menu.addItem(loginItem)
+        loginMenuItem = loginItem
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "退出 MacFan",
+        let quitItem = NSMenuItem(title: L10n.tr(.quit),
                                   action: #selector(quit),
                                   keyEquivalent: "q")
         quitItem.target = self
@@ -208,7 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 item.state = selectedIDs.contains(id) ? .on : .off
             }
         }
-        menu.item(withTitle: "开机自启动")?.state = LoginItem.isEnabled ? .on : .off
+        loginMenuItem.state = LoginItem.isEnabled ? .on : .off
     }
 
     private func refresh() {

@@ -10,10 +10,11 @@ final class MemoryMonitor: MetricProvider {
     private let totalBytes = ProcessInfo.processInfo.physicalMemory
 
     func sample() -> MetricReading {
-        guard let used = usedBytes() else { return MetricReading(menu: "内存: --") }
+        guard let used = usedBytes() else { return MetricReading(menu: "\(L10n.tr(.memory)): --") }
 
         let percent = Double(used) / Double(totalBytes) * 100.0
-        let menu = String(format: "内存: %.1f / %.0f GB (%.0f%%)",
+        let menu = String(format: "%@: %.1f / %.0f GB (%.0f%%)",
+                          L10n.tr(.memory),
                           Double(used) / 1_073_741_824.0,
                           Double(totalBytes) / 1_073_741_824.0,
                           percent)

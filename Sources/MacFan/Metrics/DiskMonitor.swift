@@ -10,13 +10,14 @@ final class DiskMonitor: MetricProvider {
               let total = attrs[.systemSize] as? Int64,
               let free = attrs[.systemFreeSize] as? Int64,
               total > 0 else {
-            return MetricReading(menu: "磁盘: --")
+            return MetricReading(menu: "\(L10n.tr(.disk)): --")
         }
 
         let used = total - free
         let percent = Double(used) / Double(total) * 100.0
         let gb = 1_073_741_824.0
-        let menu = String(format: "磁盘: 已用 %.0f / %.0f GB (%.0f%%)",
+        let menu = String(format: "%@: %@ %.0f / %.0f GB (%.0f%%)",
+                          L10n.tr(.disk), L10n.tr(.used),
                           Double(used) / gb,
                           Double(total) / gb,
                           percent)

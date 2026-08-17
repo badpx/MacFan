@@ -19,15 +19,15 @@ final class NetworkMonitor: MetricProvider {
 
     func sample() -> MetricReading {
         guard let counters = readCounters() else {
-            return MetricReading(menu: "网络: --")
+            return MetricReading(menu: "\(L10n.tr(.network)): --")
         }
 
         let now = Date()
         defer { previous = (counters.rx, counters.tx, now) }
-        guard let previous else { return MetricReading(menu: "网络: --") }
+        guard let previous else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
 
         let elapsed = now.timeIntervalSince(previous.time)
-        guard elapsed > 0 else { return MetricReading(menu: "网络: --") }
+        guard elapsed > 0 else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
 
         let rxDelta = counters.rx &- previous.rx
         let txDelta = counters.tx &- previous.tx
@@ -44,7 +44,8 @@ final class NetworkMonitor: MetricProvider {
         let downText = Self.format(rate: down)
         let downCompact = Self.compactFormat(rate: down)
         return MetricReading(
-            menu: String(format: "网络: ↓ %@ ↑ %@",
+            menu: String(format: "%@: ↓ %@ ↑ %@",
+                         L10n.tr(.network),
                          inboundBroken ? "--" : downText,
                          Self.format(rate: up)),
             compact: CompactReading(top: "↑\(Self.compactFormat(rate: up))",

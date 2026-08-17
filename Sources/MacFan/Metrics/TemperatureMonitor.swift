@@ -15,9 +15,9 @@ final class TemperatureMonitor: MetricProvider {
 
     func sample() -> MetricReading {
         guard let temperature = hidTemperature() ?? smcTemperature() else {
-            return MetricReading(menu: "温度: --")
+            return MetricReading(menu: "\(L10n.tr(.temperature)): --")
         }
-        return MetricReading(menu: String(format: "温度: %.1f °C", temperature),
+        return MetricReading(menu: String(format: "%@: %.1f °C", L10n.tr(.temperature), temperature),
                              compact: CompactReading(top: String(format: "%.0f°", temperature),
                                                      bottom: "TEMP"))
     }
