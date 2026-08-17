@@ -24,7 +24,7 @@ final class FanMonitor: MetricProvider {
             menu = String(format: "风扇: %.0f RPM", rpms[0])
         } else {
             let fans = rpms.enumerated()
-                .map { String(format: "Fan%d: %.0f", $0.offset + 1, $0.element) }
+                .map { String(format: "fan%d %.0f", $0.offset + 1, $0.element) }
                 .joined(separator: " | ")
             menu = "风扇: \(fans)"
         }
