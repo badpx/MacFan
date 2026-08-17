@@ -8,13 +8,22 @@ APP_NAME="MacFan"
 BUILD_DIR="build"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
 
-echo "==> Compiling (release)"
-swift build -c release --arch arm64
+echo "==> Compiling (release, per-arch)"
+BINARIES=()
+for arch in arm64 x86_64; do
+    swift build -c release --arch "$arch"
+    BINARIES+=("$(swift build -c release --arch "$arch" --show-bin-path)/$APP_NAME")
+done
+
+echo "==> Creating universal binary"
+UNIVERSAL="$BUILD_DIR/$APP_NAME-universal"
+mkdir -p "$BUILD_DIR"
+lipo -create "${BINARIES[@]}" -output "$UNIVERSAL"
 
 echo "==> Assembling $APP_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$(swift build -c release --arch arm64 --show-bin-path)/$APP_NAME" "$APP_DIR/Contents/MacOS/$APP_NAME"
+cp "$UNIVERSAL" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 

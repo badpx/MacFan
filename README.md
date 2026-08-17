@@ -21,7 +21,9 @@ macOS 菜单栏系统监控小工具：查看 CPU 占用率、系统温度、风
 bash Scripts/build.sh
 ```
 
-产出 `build/MacFan.app`（release 编译 + ad-hoc 签名，签名是开机自启动的前提）。
+产出 `build/MacFan.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。
+
+分发给其他人：ad-hoc 签名不带开发者身份，对方通过浏览器/AirDrop 等渠道下载后首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MacFan.app`）；U 盘等本地拷贝无此提示。如需双击即开零警告，需 Apple Developer Program 的 Developer ID 签名 + 公证。
 
 ## 安装
 
