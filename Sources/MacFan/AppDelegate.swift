@@ -30,7 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         static let separatorFont = NSFont.systemFont(ofSize: 13, weight: .ultraLight)
         static let separatorWidth: CGFloat = 12
         static let maxWidgetWidth: CGFloat = 70
-        static let uniformWidgetWidth: CGFloat = 48
+        /// Fixed width for the network widget: worst case "↑999.9M"
+        /// measures ~37.2pt in `uniformFont`, rounded up.
+        static let uniformWidgetWidth: CGFloat = 38
 
         /// (x origin, width) per part, separators included implicitly.
         private var origins: [CGFloat] = []

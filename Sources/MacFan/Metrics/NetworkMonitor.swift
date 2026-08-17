@@ -89,14 +89,18 @@ final class NetworkMonitor: MetricProvider {
     }
 
     /// Short form for the menu bar, e.g. "43.7K", "6.1M", "128B".
+    /// Keeps the integer part ≤ 3 digits so the number is at most
+    /// 6 chars ("999.9X"), which the menu bar width is sized for.
     private static func compactFormat(rate: Double) -> String {
         switch rate {
         case ..<1024:
             return String(format: "%.0fB", rate)
         case ..<(1024 * 1024):
             return String(format: "%.1fK", rate / 1024)
-        default:
+        case ..<(1024 * 1024 * 1024):
             return String(format: "%.1fM", rate / 1_048_576)
+        default:
+            return String(format: "%.1fG", rate / 1_073_741_824)
         }
     }
 }
