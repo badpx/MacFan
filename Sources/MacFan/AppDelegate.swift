@@ -6,15 +6,122 @@ import AppKit
 /// vertical bars). The selection is persisted in UserDefaults.
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
-    /// Transparent to clicks so the status bar button keeps receiving them.
-    private final class PassThroughStackView: NSStackView {
+    /// Single view that draws every menu bar widget in one draw(_:).
+    /// An earlier version used per-metric NSTextFields in an NSStackView;
+    /// keeping that hierarchy alive made AppKit continuously re-render
+    /// status-item snapshots (~50% CPU). One flat view with manual text
+    /// drawing keeps the per-tick cost near zero. Clicks fall through to
+    /// the status bar button via the nil hit test.
+    private final class WidgetsView: NSView {
+        struct Part {
+            var top: String
+            var bottom: String
+            var uniformFont: Bool
+        }
+
+        var parts: [Part] = []
+
+        /// y = 0 at the top, so "top" text really draws on top.
+        override var isFlipped: Bool { true }
+
+        static let topFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+        static let bottomFont = NSFont.systemFont(ofSize: 6.5, weight: .regular)
+        static let uniformFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)
+        static let separatorFont = NSFont.systemFont(ofSize: 13, weight: .ultraLight)
+        static let separatorWidth: CGFloat = 12
+        static let maxWidgetWidth: CGFloat = 70
+        static let uniformWidgetWidth: CGFloat = 48
+
+        /// (x origin, width) per part, separators included implicitly.
+        private var origins: [CGFloat] = []
+        private var widths: [CGFloat] = []
+
+        /// Recomputes layout from `parts`. Returns the total width needed.
+        /// The separator column is the whole inter-widget gap so the bar
+        /// glyph sits centered between neighbouring values.
+        @discardableResult
+        func relayout() -> CGFloat {
+            origins.removeAll()
+            widths.removeAll()
+            var x: CGFloat = 0
+            for (index, part) in parts.enumerated() {
+                if index > 0 { x += Self.separatorWidth }
+                let width: CGFloat
+                if part.uniformFont {
+                    width = Self.uniformWidgetWidth
+                } else {
+                    let topWidth = Self.measure(part.top, font: Self.topFont)
+                    let bottomWidth = Self.measure(part.bottom, font: Self.bottomFont)
+                    width = min(Self.maxWidgetWidth, ceil(max(topWidth, bottomWidth)))
+                }
+                origins.append(x)
+                widths.append(width)
+                x += width
+            }
+            return x
+        }
+
+        override func draw(_ dirtyRect: NSRect) {
+            let height = bounds.height
+            let color = NSColor.labelColor
+            for (index, part) in parts.enumerated() {
+                if index > 0 {
+                    let sepX = origins[index] - Self.separatorWidth
+                    drawText("|", font: Self.separatorFont,
+                             color: color.withAlphaComponent(0.7),
+                             in: NSRect(x: sepX, y: 0,
+                                        width: Self.separatorWidth, height: height),
+                             align: .center)
+                }
+                let origin = origins[index]
+                let width = widths[index]
+                if part.uniformFont {
+                    // Network widget: up over down, same size, left aligned.
+                    drawText(part.top, font: Self.uniformFont, color: color,
+                             in: NSRect(x: origin, y: 2, width: width, height: height / 2 - 2),
+                             align: .left)
+                    drawText(part.bottom, font: Self.uniformFont, color: color,
+                             in: NSRect(x: origin, y: height / 2, width: width, height: height / 2 - 1),
+                             align: .left)
+                } else {
+                    drawText(part.top, font: Self.topFont, color: color,
+                             in: NSRect(x: origin, y: 2, width: width, height: 12),
+                             align: .center)
+                    drawText(part.bottom, font: Self.bottomFont, color: color,
+                             in: NSRect(x: origin, y: 14, width: width, height: 8),
+                             align: .center)
+                }
+            }
+        }
+
+        private func drawText(_ text: String, font: NSFont, color: NSColor,
+                              in rect: NSRect, align: NSTextAlignment) {
+            let style = NSMutableParagraphStyle()
+            style.alignment = align
+            style.lineBreakMode = .byClipping
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: color,
+                .paragraphStyle: style,
+            ]
+            // NSString.draw(in:) lays out from the top of the rect, so
+            // offset explicitly to keep the glyphs vertically centered.
+            let textHeight = (text as NSString).size(withAttributes: attributes).height
+            let centered = NSRect(x: rect.minX,
+                                  y: rect.midY - textHeight / 2,
+                                  width: rect.width,
+                                  height: textHeight)
+            (text as NSString).draw(in: centered, withAttributes: attributes)
+        }
+
+        static func measure(_ text: String, font: NSFont) -> CGFloat {
+            (text as NSString).size(withAttributes: [.font: font]).width
+        }
+
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 
-    /// Same as above, for the metric widget containers.
-    private final class PassThroughView: NSView {
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    }
+    private var widgetsView: WidgetsView?
 
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
@@ -113,7 +220,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Menu bar widgets
 
     /// Shows the selected metrics directly in the menu bar; falls back
-    /// to the app icon when nothing is selected.
+    /// to the app icon when nothing is selected. Per tick this only
+    /// rewrites the strings of one flat view and asks it to redraw;
+    /// the status item is resized solely when the total width changes.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
 
@@ -121,9 +230,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.compact }
 
-        button.subviews.forEach { $0.removeFromSuperview() }
-
         guard !parts.isEmpty else {
+            widgetsView?.removeFromSuperview()
+            widgetsView = nil
             button.title = ""
             let symbolName = NSImage(systemSymbolName: "fan", accessibilityDescription: nil) != nil
                 ? "fan" : "gauge.medium"
@@ -137,83 +246,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         button.image = nil
         button.title = ""
 
-        let stack = PassThroughStackView()
-        stack.orientation = .horizontal
-        stack.alignment = .centerY
-        stack.spacing = 3
-        for (index, part) in parts.enumerated() {
-            if index > 0 { stack.addArrangedSubview(makeSeparator()) }
-            stack.addArrangedSubview(makeMetricView(part))
+        let view: WidgetsView
+        if let existing = widgetsView {
+            view = existing
+        } else {
+            view = WidgetsView()
+            button.addSubview(view)
+            widgetsView = view
         }
+
+        view.parts = parts.map {
+            WidgetsView.Part(top: $0.top, bottom: $0.bottom, uniformFont: $0.uniformFont)
+        }
+        let width = view.relayout()
 
         let barHeight = NSStatusBar.system.thickness
-        let width = stack.fittingSize.width
-        // Set the frame before adding to the button — adding with a zero
-        // frame makes the autoresizing-mask constraint (height == 0)
-        // fight the arranged subviews' heights on every refresh.
-        stack.frame = NSRect(x: 3, y: 0, width: width, height: barHeight)
-        stack.autoresizingMask = [.height]
-        button.addSubview(stack)
-        statusItem.length = width + 6
-    }
-
-    /// Two-line widget: value over label (same size for `uniformFont`).
-    /// Laid out manually inside a plain container — NSStackView's own
-    /// constraints would fight the width anchors. Width is capped at 70pt
-    /// per widget; the network widget gets a fixed width with left-aligned
-    /// text so digit-count changes extend rightward without shifting the
-    /// text away from the separator.
-    private func makeMetricView(_ reading: CompactReading) -> NSView {
-        let topFont: NSFont
-        let bottomFont: NSFont
-        if reading.uniformFont {
-            topFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)
-            bottomFont = topFont
-        } else {
-            topFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-            bottomFont = NSFont.systemFont(ofSize: 6.5, weight: .regular)
+        if view.frame.width != width || view.frame.height != barHeight {
+            view.frame = NSRect(x: 3, y: 0, width: width, height: barHeight)
+            statusItem.length = width + 6
         }
-
-        let topLabel = makeLabel(reading.top, font: topFont)
-        let bottomLabel = makeLabel(reading.bottom, font: bottomFont)
-        let topSize = topLabel.fittingSize
-        let bottomSize = bottomLabel.fittingSize
-
-        let naturalWidth = ceil(max(topSize.width, bottomSize.width))
-        let width = reading.uniformFont ? CGFloat(48) : min(70, naturalWidth)
-        let height = ceil(topSize.height + bottomSize.height)
-
-        let topX = reading.uniformFont ? CGFloat(0) : (width - topSize.width) / 2
-        let bottomX = reading.uniformFont ? CGFloat(0) : (width - bottomSize.width) / 2
-
-        let view = PassThroughView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        topLabel.frame = NSRect(x: topX,
-                                y: bottomSize.height,
-                                width: topSize.width,
-                                height: topSize.height)
-        bottomLabel.frame = NSRect(x: bottomX,
-                                   y: 0,
-                                   width: bottomSize.width,
-                                   height: bottomSize.height)
-        view.addSubview(topLabel)
-        view.addSubview(bottomLabel)
-        view.widthAnchor.constraint(equalToConstant: width).isActive = true
-        view.heightAnchor.constraint(equalToConstant: height).isActive = true
-        return view
-    }
-
-    private func makeSeparator() -> NSView {
-        let separator = makeLabel("|", font: NSFont.systemFont(ofSize: 13, weight: .ultraLight))
-        separator.alphaValue = 0.7
-        return separator
-    }
-
-    private func makeLabel(_ text: String, font: NSFont) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
-        label.font = font
-        label.textColor = .labelColor
-        label.alignment = .center
-        return label
+        view.needsDisplay = true
     }
 
     // MARK: - Actions
