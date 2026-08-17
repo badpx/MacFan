@@ -3,8 +3,11 @@ import AppKit
 // Smoke-test mode for CLI verification of the sensor plumbing:
 //   MacFan --smoke
 if CommandLine.arguments.contains("--smoke") {
-    let providers: [MetricProvider] = [CPUMonitor(), TemperatureMonitor(), FanMonitor()]
-    _ = providers.map { $0.sample() } // warm up (CPU needs two samples)
+    let providers: [MetricProvider] = [
+        CPUMonitor(), TemperatureMonitor(), FanMonitor(),
+        MemoryMonitor(), DiskMonitor(), NetworkMonitor(),
+    ]
+    _ = providers.map { $0.sample() } // warm up (CPU/network need two samples)
     Thread.sleep(forTimeInterval: 1.0)
     for provider in providers {
         print(provider.sample())

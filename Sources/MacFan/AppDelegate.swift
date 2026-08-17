@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         CPUMonitor(),
         TemperatureMonitor(),
         FanMonitor(),
+        MemoryMonitor(),
+        DiskMonitor(),
+        NetworkMonitor(),
     ]
     private var metricItems: [NSMenuItem] = []
 
