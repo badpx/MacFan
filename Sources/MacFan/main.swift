@@ -24,9 +24,10 @@ if CommandLine.arguments.contains("--fandump") {
 // Smoke-test mode for CLI verification of the sensor plumbing:
 //   MacFan --smoke
 if CommandLine.arguments.contains("--smoke") {
+    // Keep in sync with AppDelegate.providers.
     let providers: [MetricProvider] = [
-        CPUMonitor(), TemperatureMonitor(), FanMonitor(),
-        MemoryMonitor(), DiskMonitor(), NetworkMonitor(),
+        CPUMonitor(), GPUMonitor(), MemoryMonitor(), DiskMonitor(),
+        TemperatureMonitor(), FanMonitor(), NetworkMonitor(),
     ]
     _ = providers.map { $0.sample() } // warm up (CPU/network need two samples)
     Thread.sleep(forTimeInterval: 1.0)

@@ -130,10 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Ordered metrics; add new providers here.
     private let providers: [MetricProvider] = [
         CPUMonitor(),
-        TemperatureMonitor(),
-        FanMonitor(),
+        GPUMonitor(),
         MemoryMonitor(),
         DiskMonitor(),
+        TemperatureMonitor(),
+        FanMonitor(),
         NetworkMonitor(),
     ]
     private var metricItems: [NSMenuItem] = []
