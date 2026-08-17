@@ -149,12 +149,22 @@ final class SMC {
 
     /// Decodes an SMC numeric value. Supports "flt " (Float32), "fpe2"/"sp78"
     /// (fixed point) and "ui8"/"ui16" integer formats.
+    ///
+    /// "flt " byte order differs by platform (little-endian on Apple Silicon,
+    /// big-endian on older Intel SMCs). A float read with the wrong order
+    /// lands in the denormal range (~1e-38), so decode natively first and
+    /// fall back to the byte-swapped reading when the result is denormal.
     private func decodeNumber(bytes: [UInt8], type: String) -> Double? {
         switch type {
         case "flt ":
             guard bytes.count >= 4 else { return nil }
-            let bitPattern = bytes.withUnsafeBytes { $0.load(as: UInt32.self) }
-            return Double(Float(bitPattern: UInt32(bigEndian: bitPattern)))
+            let native = bytes.withUnsafeBytes { $0.load(as: UInt32.self) }
+            let value = Float(bitPattern: native)
+            if value == 0 { return 0 }
+            if abs(value) < 1e-30 {
+                return Double(Float(bitPattern: native.byteSwapped))
+            }
+            return Double(value)
         case "fpe2":
             guard bytes.count >= 2 else { return nil }
             let raw = (Int(bytes[0]) << 8) | Int(bytes[1])
