@@ -1,9 +1,39 @@
 import Foundation
 
-/// A single system metric shown as one line in the menu.
-/// Conform for future metrics (disk, memory, network...) — the menu
-/// controller renders whatever the providers return.
+/// Short two-line form shown in the menu bar: a value line and a label
+/// line (e.g. "16%" over "CPU"). `uniformFont` keeps both lines at the
+/// same size (used by the network widget: up over down).
+struct CompactReading {
+    let top: String
+    let bottom: String
+    let uniformFont: Bool
+
+    init(top: String, bottom: String, uniformFont: Bool = false) {
+        self.top = top
+        self.bottom = bottom
+        self.uniformFont = uniformFont
+    }
+}
+
+/// One reading of a metric, in two formats:
+/// - menu: full line shown in the dropdown, e.g. "CPU: 12.3 %"
+/// - compact: short two-line form for the menu bar, nil when there is no
+///   usable value (never shown in the menu bar).
+struct MetricReading {
+    let menu: String
+    let compact: CompactReading?
+
+    init(menu: String, compact: CompactReading? = nil) {
+        self.menu = menu
+        self.compact = compact
+    }
+}
+
+/// A single system metric shown in the menu and, when enabled by the user,
+/// directly in the menu bar. Conform for future metrics — the controller
+/// renders whatever the providers return.
 protocol MetricProvider {
-    /// One formatted line for the menu, e.g. "CPU: 12.3 %".
-    func sample() -> String
+    /// Stable identifier used to persist the user's menu bar selection.
+    var id: String { get }
+    func sample() -> MetricReading
 }

@@ -5,15 +5,24 @@ import Darwin.Mach
 /// host_processor_info samples.
 final class CPUMonitor: MetricProvider {
 
+    let id = "cpu"
+
     private var previous: [UInt32]?
 
-    func sample() -> String {
-        guard let ticks = readTicks() else { return "CPU: --" }
+    func sample() -> MetricReading {
+        guard let usage = measureUsage() else {
+            return MetricReading(menu: "CPU: --")
+        }
+        return MetricReading(menu: String(format: "CPU: %.1f %%", usage),
+                             compact: CompactReading(top: String(format: "%.0f%%", usage),
+                                                     bottom: "CPU"))
+    }
+
+    private func measureUsage() -> Double? {
+        guard let ticks = readTicks() else { return nil }
         defer { previous = ticks }
 
-        guard let previous, previous.count == ticks.count else {
-            return "CPU: --"
-        }
+        guard let previous, previous.count == ticks.count else { return nil }
 
         var totalDelta: UInt32 = 0
         var idleDelta: UInt32 = 0
@@ -25,9 +34,8 @@ final class CPUMonitor: MetricProvider {
             idleDelta &+= ticks[index] &- previous[index]
         }
 
-        guard totalDelta > 0 else { return "CPU: --" }
-        let usage = (1.0 - Double(idleDelta) / Double(totalDelta)) * 100.0
-        return String(format: "CPU: %.1f %%", usage)
+        guard totalDelta > 0 else { return nil }
+        return (1.0 - Double(idleDelta) / Double(totalDelta)) * 100.0
     }
 
     private func readTicks() -> [UInt32]? {

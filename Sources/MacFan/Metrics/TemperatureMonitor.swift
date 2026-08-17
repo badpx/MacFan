@@ -5,20 +5,21 @@ import Foundation
 /// SMC temperature keys.
 final class TemperatureMonitor: MetricProvider {
 
+    let id = "temperature"
+
     private let hid = HIDSensors()
     private let smc = try? SMC()
 
     /// SMC keys worth probing on Intel Macs (CPU/GPU die, palm rest...).
     private let smcFallbackKeys = ["TC0P", "TC0D", "TG0D", "TC0E"]
 
-    func sample() -> String {
-        if let temperature = hidTemperature() {
-            return String(format: "温度: %.1f °C", temperature)
+    func sample() -> MetricReading {
+        guard let temperature = hidTemperature() ?? smcTemperature() else {
+            return MetricReading(menu: "温度: --")
         }
-        if let temperature = smcTemperature() {
-            return String(format: "温度: %.1f °C", temperature)
-        }
-        return "温度: --"
+        return MetricReading(menu: String(format: "温度: %.1f °C", temperature),
+                             compact: CompactReading(top: String(format: "%.0f°", temperature),
+                                                     bottom: "TEMP"))
     }
 
     private func hidTemperature() -> Double? {

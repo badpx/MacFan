@@ -31,7 +31,9 @@ if CommandLine.arguments.contains("--smoke") {
     _ = providers.map { $0.sample() } // warm up (CPU/network need two samples)
     Thread.sleep(forTimeInterval: 1.0)
     for provider in providers {
-        print(provider.sample())
+        let reading = provider.sample()
+        let compact = reading.compact.map { "\($0.top) / \($0.bottom)" } ?? ""
+        print("\(reading.menu)   [菜单栏: \(compact)]")
     }
     exit(0)
 }

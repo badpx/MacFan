@@ -4,24 +4,30 @@ import Foundation
 /// over physical interfaces (en*), sampled between two calls.
 final class NetworkMonitor: MetricProvider {
 
+    let id = "network"
+
     private var previous: (rx: UInt64, tx: UInt64, time: Date)?
 
-    func sample() -> String {
-        guard let counters = readCounters() else { return "网络: --" }
+    func sample() -> MetricReading {
+        guard let counters = readCounters() else {
+            return MetricReading(menu: "网络: --")
+        }
 
         let now = Date()
         defer { previous = (counters.rx, counters.tx, now) }
-
-        guard let previous else { return "网络: --" }
+        guard let previous else { return MetricReading(menu: "网络: --") }
 
         let elapsed = now.timeIntervalSince(previous.time)
-        guard elapsed > 0 else { return "网络: --" }
+        guard elapsed > 0 else { return MetricReading(menu: "网络: --") }
 
         let down = Double(counters.rx &- previous.rx) / elapsed
         let up = Double(counters.tx &- previous.tx) / elapsed
-        return String(format: "网络: ↓ %@ ↑ %@",
-                      Self.format(rate: down),
-                      Self.format(rate: up))
+        return MetricReading(
+            menu: String(format: "网络: ↓ %@ ↑ %@", Self.format(rate: down), Self.format(rate: up)),
+            compact: CompactReading(top: "↑\(Self.compactFormat(rate: up))",
+                                    bottom: "↓\(Self.compactFormat(rate: down))",
+                                    uniformFont: true)
+        )
     }
 
     private func readCounters() -> (rx: UInt64, tx: UInt64)? {
@@ -56,6 +62,18 @@ final class NetworkMonitor: MetricProvider {
             return String(format: "%.1f KB/s", rate / 1024)
         default:
             return String(format: "%.1f MB/s", rate / 1_048_576)
+        }
+    }
+
+    /// Short form for the menu bar, e.g. "43.7K", "6.1M", "128B".
+    private static func compactFormat(rate: Double) -> String {
+        switch rate {
+        case ..<1024:
+            return String(format: "%.0fB", rate)
+        case ..<(1024 * 1024):
+            return String(format: "%.1fK", rate / 1024)
+        default:
+            return String(format: "%.1fM", rate / 1_048_576)
         }
     }
 }

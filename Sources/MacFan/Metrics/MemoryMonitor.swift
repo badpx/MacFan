@@ -5,15 +5,21 @@ import Darwin.Mach
 /// Activity Monitor convention: app memory + wired + compressed.
 final class MemoryMonitor: MetricProvider {
 
+    let id = "memory"
+
     private let totalBytes = ProcessInfo.processInfo.physicalMemory
 
-    func sample() -> String {
-        guard let used = usedBytes() else { return "内存: --" }
+    func sample() -> MetricReading {
+        guard let used = usedBytes() else { return MetricReading(menu: "内存: --") }
 
-        let totalGB = Double(totalBytes) / 1_073_741_824.0
-        let usedGB = Double(used) / 1_073_741_824.0
         let percent = Double(used) / Double(totalBytes) * 100.0
-        return String(format: "内存: %.1f / %.0f GB (%.0f%%)", usedGB, totalGB, percent)
+        let menu = String(format: "内存: %.1f / %.0f GB (%.0f%%)",
+                          Double(used) / 1_073_741_824.0,
+                          Double(totalBytes) / 1_073_741_824.0,
+                          percent)
+        return MetricReading(menu: menu,
+                             compact: CompactReading(top: String(format: "%.0f%%", percent),
+                                                     bottom: "MEM"))
     }
 
     private func usedBytes() -> UInt64? {
