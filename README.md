@@ -1,13 +1,16 @@
 # MacFan
 
-macOS 菜单栏系统监控小工具：查看 CPU 占用率、系统温度、风扇转速。纯 Swift + AppKit，无第三方依赖，常驻后台（无 Dock 图标），资源占用低（单个 2s 定时器 + 几次系统调用）。
+macOS 菜单栏系统监控小工具：查看 CPU 占用率、系统温度、风扇转速、内存、磁盘、网速。纯 Swift + AppKit，无第三方依赖，常驻后台（无 Dock 图标），资源占用低（单个 2s 定时器 + 几次系统调用）。
 
 ## 功能
 
-- 菜单栏图标（SF Symbol），点击弹出：
+- 菜单栏图标（SF Symbol），点击弹出并实时刷新：
   - CPU 占用率（`host_processor_info` 采样差值）
   - 系统温度（Apple Silicon 走 IOHIDEventSystem HID 传感器取最高值；Intel 回退 SMC 温度 key）
   - 风扇转速（SMC `FNum` / `F*Ac`；无风扇机型显示 N/A，风扇停转显示 0 RPM）
+  - 内存（`host_statistics64`，口径同活动监视器：App 内存 + 联动 + 压缩）
+  - 磁盘（系统卷已用 / 总量）
+  - 网速（`getifaddrs` 统计 en* 物理网卡上下行速率）
 - 开机自启动开关（SMAppService，macOS 13+）
 - 手动退出（菜单项或 ⌘Q）
 - 后台常驻（`LSUIElement`），不出现在 Dock
@@ -48,7 +51,7 @@ rm -rf /Applications/MacFan.app
 
 ## 扩展
 
-新增指标只需实现 `MetricProvider` 协议（`func sample() -> String`），并加入 `AppDelegate.providers` 数组。计划扩展：磁盘、内存、网速。
+新增指标只需实现 `MetricProvider` 协议（`func sample() -> String`），并加入 `AppDelegate.providers` 数组。已实现：CPU、温度、风扇、内存、磁盘、网速。
 
 ## 系统要求
 
