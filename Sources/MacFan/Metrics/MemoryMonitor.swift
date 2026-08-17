@@ -34,11 +34,13 @@ final class MemoryMonitor: MetricProvider {
         }
         guard result == KERN_SUCCESS else { return nil }
 
+        // Activity Monitor: Memory Used = App Memory + Wired + Compressed,
+        // where App Memory = internal (anonymous) pages minus purgeable pages.
+        // File-backed pages (external_page_count) are cache and must not count.
         let pageSize = UInt64(vm_kernel_page_size)
-        return (UInt64(stats.active_count)
-                + UInt64(stats.wire_count)
-                + UInt64(stats.compressor_page_count)
+        return (UInt64(stats.internal_page_count)
                 - UInt64(stats.purgeable_count)
-                + UInt64(stats.external_page_count)) * pageSize
+                + UInt64(stats.wire_count)
+                + UInt64(stats.compressor_page_count)) * pageSize
     }
 }
