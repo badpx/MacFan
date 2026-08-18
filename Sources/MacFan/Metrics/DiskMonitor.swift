@@ -23,7 +23,9 @@ final class DiskMonitor: MetricProvider {
 
         let used = Int64(total) - available
         let percent = Double(used) / Double(total) * 100.0
-        let gb = 1_073_741_824.0
+        // Decimal GB (10^9), matching Finder/System Settings; binary GiB (2^30)
+        // would understate both used and total by ~7% under a "GB" label.
+        let gb = 1_000_000_000.0
         let menu = String(format: "%@: %@ %.0f / %.0f GB (%.0f%%)",
                           L10n.tr(.disk), L10n.tr(.used),
                           Double(used) / gb,
