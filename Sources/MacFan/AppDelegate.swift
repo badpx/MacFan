@@ -145,6 +145,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Latest reading per provider id, refreshed every timer tick.
     private var readings: [String: MetricReading] = [:]
 
+    // MARK: Icon animation (logo mode: no metrics selected)
+
+    /// Latest max fan RPM parsed from the fan reading, for spin speed.
+    private var currentFanRPM: Double = 0
+    private var iconAngle: CGFloat = 0
+
     private let selectionKey = "menuBarMetrics"
     private var selectedIDs: [String] {
         get { UserDefaults.standard.stringArray(forKey: selectionKey) ?? [] }
@@ -220,6 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             readings[provider.id] = reading
             item.title = reading.menu
         }
+        currentFanRPM = Double(readings["fan"]?.compact?.top ?? "") ?? 0
         updateStatusBar()
     }
 
@@ -242,13 +249,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.title = ""
             let symbolName = NSImage(systemSymbolName: "fan", accessibilityDescription: nil) != nil
                 ? "fan" : "gauge.medium"
-            button.image = NSImage(systemSymbolName: symbolName,
-                                   accessibilityDescription: "MacFan")
-            button.image?.isTemplate = true
+            var image = NSImage(systemSymbolName: symbolName,
+                                accessibilityDescription: "MacFan")
+            // Slightly larger than the default menu bar glyph size.
+            if let configured = image?.withSymbolConfiguration(
+                .init(pointSize: 15, weight: .regular, scale: .medium)) {
+                image = configured
+            }
+            image?.isTemplate = true
+            button.image = image
+            // The icon spins while the fan is running: each refresh tick
+            // (2s, same cadence as the data) advances a fixed 45°, a full
+            // turn every 16s — a clearly visible step per frame. A stopped
+            // fan leaves the icon static. The gauge fallback never rotates.
+            // Rotation is applied as a layer transform rather than by
+            // redrawing the image, so the icon's size and layout stay
+            // identical at every angle (the fan symbol's canvas is not
+            // square, so a redrawn bitmap got clipped while turning).
+            if symbolName == "fan", currentFanRPM > 0 {
+                iconAngle = (iconAngle + 45).truncatingRemainder(dividingBy: 360)
+            }
+            button.wantsLayer = true
+            // NSStatusBarButton's layer has anchorPoint (0, 0), so a bare
+            // rotation transform would pivot around the bottom-left
+            // corner. Compose translate-rotate-translate to spin around
+            // the button's center instead.
+            let bounds = button.bounds
+            button.layer?.setAffineTransform(
+                CGAffineTransform(translationX: bounds.midX, y: bounds.midY)
+                    .rotated(by: iconAngle * .pi / 180)
+                    .translatedBy(x: -bounds.midX, y: -bounds.midY))
             statusItem.length = NSStatusItem.squareLength
             return
         }
 
+        button.layer?.setAffineTransform(.identity)
         button.image = nil
         button.title = ""
 
