@@ -4,6 +4,9 @@ import AppKit
 /// Metrics can be toggled in the menu; selected ones are shown directly
 /// in the menu bar as two-line widgets (value over label, separated by
 /// vertical bars). The selection is persisted in UserDefaults.
+/// When the menu bar runs out of room the system silently hides the
+/// status item; the controller then drops widgets from the right end
+/// and periodically probes for free space to bring them back.
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Single view that draws every menu bar widget in one draw(_:).
@@ -145,6 +148,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Latest reading per provider id, refreshed every timer tick.
     private var readings: [String: MetricReading] = [:]
 
+    // MARK: Menu bar overflow (graceful degradation)
+
+    /// Selected widgets suppressed from the right end because the
+    /// system hid the status item when the menu bar ran out of room
+    /// (network, the widest, drops first). 0 = everything is shown.
+    private var hiddenWidgetCount = 0
+    /// Widgets rendered by the last updateStatusBar pass (0 = icon mode).
+    private var renderedWidgetCount = 0
+    /// Relayouts take about one tick to settle in WindowServer, so the
+    /// tick right after a resize must not trust the window position.
+    private var skipVisibilityCheck = false
+    /// A restore probe (one widget added back) is awaiting its check.
+    private var probeInFlight = false
+    /// Last restore-probe attempt; paces probes to one per 30 seconds.
+    private var lastProbeAttempt = Date.distantPast
+    /// Warning row pinned to the top of the menu while degraded.
+    private var overflowMenuItem: NSMenuItem!
+
     // MARK: Icon animation (logo mode: no metrics selected)
 
     /// Latest max fan RPM parsed from the fan reading, for spin speed.
@@ -162,6 +183,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu = NSMenu()
         menu.delegate = self
+
+        let overflowItem = NSMenuItem(title: L10n.tr(.menuBarOverflow),
+                                      action: nil, keyEquivalent: "")
+        overflowItem.isEnabled = false
+        overflowItem.isHidden = true
+        menu.addItem(overflowItem)
+        overflowMenuItem = overflowItem
 
         for provider in providers {
             let item = NSMenuItem(title: "--",
@@ -207,6 +235,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+
+        // Restore probes: menu bar space frees up when the front app
+        // changes (its menus shrink) or the display setup changes.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(probeRestoreIfDue),
+            name: NSWorkspace.didActivateApplicationNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(probeRestoreIfDue),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
 
     /// Refresh right before the menu opens so values are never stale.
@@ -228,6 +265,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         currentFanRPM = Double(readings["fan"]?.compact?.top ?? "") ?? 0
         updateStatusBar()
+        checkVisibilityAndDegrade()
+        probeRestoreIfDue()  // 30s fallback pacing lives inside
     }
 
     // MARK: - Menu bar widgets
@@ -239,9 +278,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
 
-        let parts = providers
+        let selectedParts = providers
             .filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.compact }
+        hiddenWidgetCount = min(hiddenWidgetCount, selectedParts.count)
+        overflowMenuItem.isHidden = hiddenWidgetCount == 0
+        // Suppressed widgets drop off the right end first.
+        let parts = selectedParts.dropLast(hiddenWidgetCount)
+        renderedWidgetCount = parts.count
 
         guard !parts.isEmpty else {
             widgetsView?.removeFromSuperview()
@@ -306,8 +350,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if view.frame.width != width || view.frame.height != barHeight {
             view.frame = NSRect(x: 3, y: 0, width: width, height: barHeight)
             statusItem.length = width + 6
+            skipVisibilityCheck = true
         }
         view.needsDisplay = true
+    }
+
+    /// Per-tick overflow handling. When a status item no longer fits,
+    /// the system parks its window outside the displayable menu bar
+    /// strip while every public visibility property keeps reporting
+    /// "visible" — the window position is the only reliable signal.
+    /// On detection, drop one more widget; on a successful restore
+    /// probe, immediately try the next one.
+    private func checkVisibilityAndDegrade() {
+        guard renderedWidgetCount > 0 else { return }
+        if skipVisibilityCheck {
+            skipVisibilityCheck = false
+            return
+        }
+        if statusItemIsVisible() {
+            if probeInFlight {
+                probeInFlight = false
+                NSLog("MacFan: restore probe succeeded, \(hiddenWidgetCount) widget(s) still hidden")
+                probeRestore(forced: true)
+            }
+            return
+        }
+        probeInFlight = false
+        hiddenWidgetCount += 1
+        // Freshly degraded: wait before probing again.
+        lastProbeAttempt = Date()
+        NSLog("MacFan: menu bar full, hiding rightmost widget (\(hiddenWidgetCount) hidden)")
+        updateStatusBar()
+    }
+
+    /// Tries to reveal one more suppressed widget. Fails safe: if the
+    /// space still isn't there, the next visibility check re-hides it.
+    @objc private func probeRestoreIfDue() {
+        probeRestore(forced: false)
+    }
+
+    private func probeRestore(forced: Bool) {
+        guard hiddenWidgetCount > 0, !probeInFlight, !skipVisibilityCheck else { return }
+        let now = Date()
+        guard forced || now.timeIntervalSince(lastProbeAttempt) >= 30 else { return }
+        lastProbeAttempt = now
+        hiddenWidgetCount -= 1
+        probeInFlight = true
+        NSLog("MacFan: probing menu bar space (\(hiddenWidgetCount) widget(s) still hidden)")
+        updateStatusBar()
+    }
+
+    /// Whether the status item is actually drawn in the menu bar.
+    /// When the system hides an item for lack of space, every public
+    /// visibility property keeps lying (isVisible/isHidden/window.isVisible)
+    /// and the window is parked at some unreachable position — but its
+    /// occlusionState loses the .visible bit. Verified empirically on
+    /// single- and multi-display setups.
+    private func statusItemIsVisible() -> Bool {
+        guard let window = statusItem.button?.window else { return false }
+        if ProcessInfo.processInfo.environment["MACFAN_DEBUG_LAYOUT"] != nil {
+            NSLog("MacFan: window=\(NSStringFromRect(window.frame)) occlusion=\(window.occlusionState.rawValue)")
+        }
+        return window.occlusionState.contains(.visible)
     }
 
     // MARK: - Actions
@@ -322,6 +426,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         selectedIDs = selection
         sender.state = selection.contains(id) ? .on : .off
+        // User intent: show exactly what is checked. If it doesn't
+        // fit, the per-tick check degrades again within seconds.
+        hiddenWidgetCount = 0
+        probeInFlight = false
         updateStatusBar()
     }
 
