@@ -331,6 +331,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func quit() {
-        NSApp.terminate(nil)
+        // Ask before terminating so a misclick in the menu doesn't kill
+        // the app. The version goes into the prompt for clarity.
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let alert = NSAlert()
+        alert.messageText = String(format: L10n.tr(.quitConfirm), "v" + version)
+        alert.addButton(withTitle: L10n.tr(.quit))
+        alert.addButton(withTitle: L10n.tr(.cancel))
+        // Accessory app: bring the alert to the front explicitly.
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSApp.terminate(nil)
+        }
     }
 }
