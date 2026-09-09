@@ -197,6 +197,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                   keyEquivalent: "")
             item.target = self
             item.representedObject = provider.id
+            // Eye icons instead of the plain checkmark: open = shown in the
+            // menu bar, closed = hidden. Template so they invert on highlight.
+            item.onStateImage = Self.eyeOnImage
+            item.offStateImage = Self.eyeOffImage
             item.state = selectedIDs.contains(provider.id) ? .on : .off
             menu.addItem(item)
             metricItems.append(item)
@@ -261,12 +265,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for (item, provider) in zip(metricItems, providers) {
             let reading = provider.sample()
             readings[provider.id] = reading
-            item.title = reading.menu
+            applyMenuTitle(item, reading: reading)
         }
         currentFanRPM = Double(readings["fan"]?.compact?.top ?? "") ?? 0
         updateStatusBar()
         checkVisibilityAndDegrade()
         probeRestoreIfDue()  // 30s fallback pacing lives inside
+    }
+
+    private static let menuFont = NSFont.menuFont(ofSize: 0)
+    private static let menuBoldFont =
+        NSFontManager.shared.convert(menuFont, toHaveTrait: .boldFontMask)
+
+    /// State icons for metric toggle items (see eyeOn/eyeOff above).
+    private static let eyeOnImage = loadStateImage("MenuEyeOn")
+    private static let eyeOffImage = loadStateImage("MenuEyeOff")
+
+    private static func loadStateImage(_ name: String) -> NSImage? {
+        guard let path = Bundle.main.path(forResource: name, ofType: "png"),
+              let image = NSImage(contentsOfFile: path) else { return nil }
+        image.size = NSSize(width: 14, height: 14)
+        image.isTemplate = true
+        return image
+    }
+
+    /// Menu line with a bold "Title:" prefix; when the reading carries a
+    /// heat value, the value part blends orange (0) → red (1).
+    private func applyMenuTitle(_ item: NSMenuItem, reading: MetricReading) {
+        let text = reading.menu
+        let str = NSMutableAttributedString(string: text, attributes: [
+            .font: Self.menuFont,
+            .foregroundColor: NSColor.labelColor,
+        ])
+        let nsText = text as NSString
+        let colon = nsText.range(of: ": ").location
+        let split = colon != NSNotFound ? colon + 2 : 0
+        if split > 0 {
+            str.addAttribute(.font, value: Self.menuBoldFont,
+                             range: NSRange(location: 0, length: split))
+        }
+        if let heat = reading.heat {
+            let fraction = min(max(heat, 0), 1)
+            let color = NSColor.systemOrange.blended(withFraction: fraction,
+                                                     of: .systemRed) ?? .systemRed
+            str.addAttribute(.foregroundColor, value: color,
+                             range: NSRange(location: split, length: nsText.length - split))
+        }
+        item.attributedTitle = str
     }
 
     // MARK: - Menu bar widgets

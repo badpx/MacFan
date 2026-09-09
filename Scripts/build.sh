@@ -26,6 +26,7 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$UNIVERSAL" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
+cp Resources/MenuEyeOn.png Resources/MenuEyeOff.png "$APP_DIR/Contents/Resources/"
 
 echo "==> Ad-hoc code signing (required for launch-at-login)"
 codesign --force --deep --sign - "$APP_DIR"

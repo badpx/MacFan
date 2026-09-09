@@ -13,6 +13,9 @@ final class MemoryMonitor: MetricProvider {
         guard let used = usedBytes() else { return MetricReading(menu: "\(L10n.tr(.memory)): --") }
 
         let percent = Double(used) / Double(totalBytes) * 100.0
+        // Warn from 80 % used (light orange) ramping to red at 90 %.
+        let heat: Double? = percent >= 80
+            ? min((percent - 80) / 10, 1) : nil
         let menu = String(format: "%@: %.1f / %.0f GB (%.0f%%)",
                           L10n.tr(.memory),
                           Double(used) / 1_073_741_824.0,
@@ -21,7 +24,8 @@ final class MemoryMonitor: MetricProvider {
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
                                                      bottom: "MEM",
-                                                     topWidthTemplate: "100%"))
+                                                     topWidthTemplate: "100%"),
+                             heat: heat)
     }
 
     private func usedBytes() -> UInt64? {

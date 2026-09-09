@@ -26,6 +26,9 @@ final class DiskMonitor: MetricProvider {
         // Decimal GB (10^9), matching Finder/System Settings; binary GiB (2^30)
         // would understate both used and total by ~7% under a "GB" label.
         let gb = 1_000_000_000.0
+        // Warn from 80 % full (light orange) ramping to red at 90 %.
+        let heat: Double? = percent >= 80
+            ? min((percent - 80) / 10, 1) : nil
         let menu = String(format: "%@: %@ %.0f / %.0f GB (%.0f%%)",
                           L10n.tr(.disk), L10n.tr(.used),
                           Double(used) / gb,
@@ -34,6 +37,7 @@ final class DiskMonitor: MetricProvider {
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
                                                      bottom: "SSD",
-                                                     topWidthTemplate: "100%"))
+                                                     topWidthTemplate: "100%"),
+                             heat: heat)
     }
 }

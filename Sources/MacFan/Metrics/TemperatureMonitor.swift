@@ -17,10 +17,14 @@ final class TemperatureMonitor: MetricProvider {
         guard let temperature = hidTemperature() ?? smcTemperature() else {
             return MetricReading(menu: "\(L10n.tr(.temperature)): --")
         }
+        // Warn from 75 °C (light orange) ramping to red at 85 °C.
+        let heat: Double? = temperature >= 75
+            ? min((temperature - 75) / 10, 1) : nil
         return MetricReading(menu: String(format: "%@: %.1f °C", L10n.tr(.temperature), temperature),
                              compact: CompactReading(top: String(format: "%.0f°", temperature),
                                                      bottom: "TEMP",
-                                                     topWidthTemplate: "100°"))
+                                                     topWidthTemplate: "100°"),
+                             heat: heat)
     }
 
     private func hidTemperature() -> Double? {

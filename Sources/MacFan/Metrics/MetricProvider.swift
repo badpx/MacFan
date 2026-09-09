@@ -28,10 +28,14 @@ struct CompactReading {
 struct MetricReading {
     let menu: String
     let compact: CompactReading?
+    /// Warning severity for the menu line: nil = normal color,
+    /// 0 = just over the warning threshold (orange), 1 = critical (red).
+    let heat: Double?
 
-    init(menu: String, compact: CompactReading? = nil) {
+    init(menu: String, compact: CompactReading? = nil, heat: Double? = nil) {
         self.menu = menu
         self.compact = compact
+        self.heat = heat
     }
 }
 
