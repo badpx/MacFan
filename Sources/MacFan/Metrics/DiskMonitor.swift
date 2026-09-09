@@ -29,10 +29,11 @@ final class DiskMonitor: MetricProvider {
         // Warn from 80 % full (light orange) ramping to red at 90 %.
         let heat: Double? = percent >= 80
             ? min((percent - 80) / 10, 1) : nil
-        let menu = String(format: "%@: %@ %.0f / %.0f GB (%.0f%%)",
-                          L10n.tr(.disk), L10n.tr(.used),
+        let menu = String(format: "%@: %.0f / %.0f GB (%@ %.0f%%)",
+                          L10n.tr(.disk),
                           Double(used) / gb,
                           Double(total) / gb,
+                          L10n.tr(.used),
                           percent)
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f%%", percent),

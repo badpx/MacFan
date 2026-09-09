@@ -16,10 +16,11 @@ final class MemoryMonitor: MetricProvider {
         // Warn from 80 % used (light orange) ramping to red at 90 %.
         let heat: Double? = percent >= 80
             ? min((percent - 80) / 10, 1) : nil
-        let menu = String(format: "%@: %.1f / %.0f GB (%.0f%%)",
+        let menu = String(format: "%@: %.1f / %.0f GB (%@ %.0f%%)",
                           L10n.tr(.memory),
                           Double(used) / 1_073_741_824.0,
                           Double(totalBytes) / 1_073_741_824.0,
+                          L10n.tr(.used),
                           percent)
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
