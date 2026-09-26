@@ -21,6 +21,23 @@ struct CompactReading {
     }
 }
 
+/// Structured values for the popover. Capacity is expressed in the same
+/// GB/GiB convention as its provider; network rates are bytes per second.
+enum MetricValue {
+    case percent(Double)
+    case capacity(used: Double, total: Double)
+    case temperature(Double)
+    case fan(Double)
+    case network(download: Double?, upload: Double?)
+
+    var scalar: Double? {
+        switch self {
+        case .percent(let value), .temperature(let value), .fan(let value): return value
+        default: return nil
+        }
+    }
+}
+
 /// One reading of a metric, in two formats:
 /// - menu: full line shown in the dropdown, e.g. "CPU: 12.3 %"
 /// - compact: short two-line form for the menu bar, nil when there is no
@@ -31,11 +48,14 @@ struct MetricReading {
     /// Warning severity for the menu line: nil = normal color,
     /// 0 = just over the warning threshold (orange), 1 = critical (red).
     let heat: Double?
+    let value: MetricValue?
 
-    init(menu: String, compact: CompactReading? = nil, heat: Double? = nil) {
+    init(menu: String, compact: CompactReading? = nil, heat: Double? = nil,
+         value: MetricValue? = nil) {
         self.menu = menu
         self.compact = compact
         self.heat = heat
+        self.value = value
     }
 }
 

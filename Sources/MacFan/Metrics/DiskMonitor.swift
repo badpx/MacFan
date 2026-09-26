@@ -39,6 +39,7 @@ final class DiskMonitor: MetricProvider {
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
                                                      bottom: "SSD",
                                                      topWidthTemplate: "100%"),
-                             heat: heat)
+                             heat: heat,
+                             value: .capacity(used: Double(used) / gb, total: Double(total) / gb))
     }
 }

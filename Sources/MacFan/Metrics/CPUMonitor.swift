@@ -16,7 +16,8 @@ final class CPUMonitor: MetricProvider {
         return MetricReading(menu: String(format: "CPU: %.1f %%", usage),
                              compact: CompactReading(top: String(format: "%.0f%%", usage),
                                                      bottom: "CPU",
-                                                     topWidthTemplate: "100%"))
+                                                     topWidthTemplate: "100%"),
+                             value: .percent(usage))
     }
 
     private func measureUsage() -> Double? {

@@ -15,24 +15,23 @@ final class FanMonitor: MetricProvider {
         let count = smc.fanCount()
         guard count > 0 else { return MetricReading(menu: "\(fanLabel): N/A") }
 
-        let rpms = (0..<count).compactMap { smc.fanRPM($0) }
-        guard !rpms.isEmpty else { return MetricReading(menu: "\(fanLabel): N/A") }
-
-        // Menu lists every fan ("风扇: fan1 1359 | fan2 1456"); the menu
-        // bar shows a single number — the fastest fan.
-        let menu: String
-        if rpms.count == 1 {
-            menu = String(format: "%@: %.0f RPM", fanLabel, rpms[0])
-        } else {
-            let fans = rpms.enumerated()
-                .map { String(format: "fan%d %.0f", $0.offset + 1, $0.element) }
-                .joined(separator: " | ")
-            menu = "\(fanLabel): \(fans)"
+        guard let rpm = Self.average((0..<count).map { smc.fanRPM($0) }) else {
+            return MetricReading(menu: "\(fanLabel): N/A")
         }
-        let rpm = rpms.max() ?? 0
-        return MetricReading(menu: menu,
+        return MetricReading(menu: String(format: "%@: %.0f RPM", fanLabel, rpm),
                              compact: CompactReading(top: String(format: "%.0f", rpm),
                                                      bottom: "RPM",
-                                                     topWidthTemplate: "9999"))
+                                                     topWidthTemplate: "9999"),
+                             value: .fan(rpm))
+    }
+
+    /// Zero is a valid stopped fan. A missing sensor must not silently turn
+    /// a two-fan average into a single-fan reading.
+    static func average(_ readings: [Double?]) -> Double? {
+        guard !readings.isEmpty else { return nil }
+        let values = readings.compactMap { $0 }
+        guard values.count == readings.count,
+              values.allSatisfy({ $0.isFinite && $0 >= 0 }) else { return nil }
+        return values.reduce(0, +) / Double(values.count)
     }
 }

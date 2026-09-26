@@ -24,7 +24,7 @@ final class TemperatureMonitor: MetricProvider {
                              compact: CompactReading(top: String(format: "%.0f°", temperature),
                                                      bottom: "TEMP",
                                                      topWidthTemplate: "100°"),
-                             heat: heat)
+                             heat: heat, value: .temperature(temperature))
     }
 
     private func hidTemperature() -> Double? {

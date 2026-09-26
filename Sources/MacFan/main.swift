@@ -1,5 +1,13 @@
 import AppKit
 
+#if DEBUG
+if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshot"),
+   CommandLine.arguments.indices.contains(flag + 1) {
+    PopoverPreview.run(output: CommandLine.arguments[flag + 1])
+    exit(0)
+}
+#endif
+
 // Debug mode: dump raw SMC data for fan-related keys.
 //   MacFan --fandump
 if CommandLine.arguments.contains("--fandump") {

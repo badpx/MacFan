@@ -50,7 +50,8 @@ final class NetworkMonitor: MetricProvider {
                          Self.format(rate: up)),
             compact: CompactReading(top: "↑\(Self.compactFormat(rate: up))",
                                     bottom: inboundBroken ? "↓--" : "↓\(downCompact)",
-                                    uniformFont: true)
+                                    uniformFont: true),
+            value: .network(download: inboundBroken ? nil : down, upload: up)
         )
     }
 

@@ -1,13 +1,14 @@
 import AppKit
+import SwiftUI
 
-/// Menu bar controller: one status item, one 2s timer, nothing else.
-/// Metrics can be toggled in the menu; selected ones are shown directly
+/// Menu bar controller with a native popover and one shared 2s sampler.
+/// Metrics can be toggled in the popover; selected ones are shown directly
 /// in the menu bar as two-line widgets (value over label, separated by
 /// vertical bars). The selection is persisted in UserDefaults.
 /// When the menu bar runs out of room the system silently hides the
 /// status item; the controller then drops widgets from the right end
 /// and periodically probes for free space to bring them back.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     /// Single view that draws every menu bar widget in one draw(_:).
     /// An earlier version used per-metric NSTextFields in an NSStackView;
@@ -130,7 +131,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var widgetsView: WidgetsView?
 
     private var statusItem: NSStatusItem!
-    private var menu: NSMenu!
+    private let popover = NSPopover()
+    private let panelModel = PopoverModel()
+    private var keyMonitor: Any?
     private var timer: Timer?
 
     /// Ordered metrics; add new providers here.
@@ -143,8 +146,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         FanMonitor(),
         NetworkMonitor(),
     ]
-    private var metricItems: [NSMenuItem] = []
-    private var loginMenuItem: NSMenuItem!
     /// Latest reading per provider id, refreshed every timer tick.
     private var readings: [String: MetricReading] = [:]
 
@@ -163,15 +164,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var probeInFlight = false
     /// Last restore-probe attempt; paces probes to one per 30 seconds.
     private var lastProbeAttempt = Date.distantPast
-    /// Warning row pinned to the top of the menu while degraded.
-    private var overflowMenuItem: NSMenuItem!
-
-    // MARK: Icon animation (logo mode: no metrics selected)
-
-    /// Latest max fan RPM parsed from the fan reading, for spin speed.
-    private var currentFanRPM: Double = 0
-    private var iconAngle: CGFloat = 0
-
     private let selectionKey = "menuBarMetrics"
     private var selectedIDs: [String] {
         get { UserDefaults.standard.stringArray(forKey: selectionKey) ?? [] }
@@ -181,50 +173,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-        menu = NSMenu()
-        menu.delegate = self
-
-        let overflowItem = NSMenuItem(title: L10n.tr(.menuBarOverflow),
-                                      action: nil, keyEquivalent: "")
-        overflowItem.isEnabled = false
-        overflowItem.isHidden = true
-        menu.addItem(overflowItem)
-        overflowMenuItem = overflowItem
-
-        for provider in providers {
-            let item = NSMenuItem(title: "--",
-                                  action: #selector(toggleMetric(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = provider.id
-            // Eye icons instead of the plain checkmark: open = shown in the
-            // menu bar, closed = hidden. Template so they invert on highlight.
-            item.onStateImage = Self.eyeOnImage
-            item.offStateImage = Self.eyeOffImage
-            item.state = selectedIDs.contains(provider.id) ? .on : .off
-            menu.addItem(item)
-            metricItems.append(item)
-        }
-
-        menu.addItem(.separator())
-
-        let loginItem = NSMenuItem(title: L10n.tr(.launchAtLogin),
-                                   action: #selector(toggleLaunchAtLogin),
-                                   keyEquivalent: "")
-        loginItem.target = self
-        loginItem.state = LoginItem.isEnabled ? .on : .off
-        menu.addItem(loginItem)
-        loginMenuItem = loginItem
-
-        menu.addItem(.separator())
-
-        let quitItem = NSMenuItem(title: L10n.tr(.quit),
-                                  action: #selector(quit),
-                                  keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        statusItem.menu = menu
+        popover.behavior = .transient
+        popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        popover.delegate = self
+        popover.contentViewController = NSHostingController(rootView: PopoverView(model: panelModel))
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(togglePopover)
+        statusItem.button?.setAccessibilityLabel("MacFan")
+        panelModel.onSelection = { [weak self] id, enabled in self?.setMetric(id, enabled: enabled) }
+        panelModel.onLogin = { [weak self] enabled in self?.setLaunchAtLogin(enabled) }
+        panelModel.onQuit = { [weak self] in self?.quit() }
+        panelModel.onPage = { [weak self] in self?.resizePopover() }
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshLoginState),
+                                               name: NSApplication.didBecomeActiveNotification, object: nil)
 
         // Warm up delta-based samplers (CPU/network need two samples),
         // then take the first real reading 1s later.
@@ -250,68 +211,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
 
-    /// Refresh right before the menu opens so values are never stale.
-    func menuWillOpen(_ menu: NSMenu) {
-        refresh()
-        for item in metricItems {
-            if let id = item.representedObject as? String {
-                item.state = selectedIDs.contains(id) ? .on : .off
-            }
-        }
-        loginMenuItem.state = LoginItem.isEnabled ? .on : .off
-    }
-
     private func refresh() {
-        for (item, provider) in zip(metricItems, providers) {
-            let reading = provider.sample()
-            readings[provider.id] = reading
-            applyMenuTitle(item, reading: reading)
-        }
-        currentFanRPM = Double(readings["fan"]?.compact?.top ?? "") ?? 0
+        for provider in providers { readings[provider.id] = provider.sample() }
         updateStatusBar()
         checkVisibilityAndDegrade()
-        probeRestoreIfDue()  // 30s fallback pacing lives inside
+        probeRestoreIfDue()
+        syncPopover()
     }
 
-    private static let menuFont = NSFont.menuFont(ofSize: 0)
-    private static let menuBoldFont =
-        NSFontManager.shared.convert(menuFont, toHaveTrait: .boldFontMask)
-
-    /// State icons for metric toggle items (see eyeOn/eyeOff above).
-    private static let eyeOnImage = loadStateImage("MenuEyeOn")
-    private static let eyeOffImage = loadStateImage("MenuEyeOff")
-
-    private static func loadStateImage(_ name: String) -> NSImage? {
-        guard let path = Bundle.main.path(forResource: name, ofType: "png"),
-              let image = NSImage(contentsOfFile: path) else { return nil }
-        image.size = NSSize(width: 14, height: 14)
-        image.isTemplate = true
-        return image
+    @objc private func togglePopover() {
+        if popover.isShown { popover.performClose(nil) } else { showPopover() }
     }
 
-    /// Menu line with a bold "Title:" prefix; when the reading carries a
-    /// heat value, the value part blends orange (0) → red (1).
-    private func applyMenuTitle(_ item: NSMenuItem, reading: MetricReading) {
-        let text = reading.menu
-        let str = NSMutableAttributedString(string: text, attributes: [
-            .font: Self.menuFont,
-            .foregroundColor: NSColor.labelColor,
-        ])
-        let nsText = text as NSString
-        let colon = nsText.range(of: ": ").location
-        let split = colon != NSNotFound ? colon + 2 : 0
-        if split > 0 {
-            str.addAttribute(.font, value: Self.menuBoldFont,
-                             range: NSRange(location: 0, length: split))
+    private func showPopover() {
+        guard let button = statusItem.button else { return }
+        refresh()
+        syncPopover(force: true)
+        resizePopover()
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+        if keyMonitor == nil {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, self.popover.isShown else { return event }
+                if event.keyCode == 53 { self.popover.performClose(nil); return nil }
+                if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "q" {
+                    self.quit()
+                    return nil
+                }
+                return event
+            }
         }
-        if let heat = reading.heat {
-            let fraction = min(max(heat, 0), 1)
-            let color = NSColor.systemOrange.blended(withFraction: fraction,
-                                                     of: .systemRed) ?? .systemRed
-            str.addAttribute(.foregroundColor, value: color,
-                             range: NSRange(location: split, length: nsText.length - split))
-        }
-        item.attributedTitle = str
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+    }
+
+    private func resizePopover() {
+        let screen = statusItem.button?.window?.screen ?? NSScreen.main
+        let available = max(300, (screen?.visibleFrame.height ?? 900) - 32)
+        let desired: CGFloat = panelModel.page == .overview ? 724 : 672
+        panelModel.height = min(desired, available)
+        popover.contentSize = NSSize(width: 384, height: panelModel.height)
+    }
+
+    private func syncPopover(force: Bool = false) {
+        guard force || popover.isShown else { return }
+        panelModel.readings = readings
+        panelModel.selectedIDs = selectedIDs
+        panelModel.hiddenCount = hiddenWidgetCount
+        panelModel.loginState = LoginItem.state
+    }
+
+    @objc private func refreshLoginState() {
+        guard popover.isShown else { return }
+        panelModel.loginState = LoginItem.state
     }
 
     // MARK: - Menu bar widgets
@@ -322,12 +278,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// the status item is resized solely when the total width changes.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
+        defer { syncPopover() }
+
+        button.setAccessibilityValue(providers.filter { selectedIDs.contains($0.id) }
+            .compactMap { readings[$0.id]?.menu }.joined(separator: ", "))
 
         let selectedParts = providers
             .filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.compact }
         hiddenWidgetCount = min(hiddenWidgetCount, selectedParts.count)
-        overflowMenuItem.isHidden = hiddenWidgetCount == 0
         // Suppressed widgets drop off the right end first.
         let parts = selectedParts.dropLast(hiddenWidgetCount)
         renderedWidgetCount = parts.count
@@ -347,27 +306,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             image?.isTemplate = true
             button.image = image
-            // The icon spins while the fan is running: each refresh tick
-            // (2s, same cadence as the data) advances a fixed 45°, a full
-            // turn every 16s — a clearly visible step per frame. A stopped
-            // fan leaves the icon static. The gauge fallback never rotates.
-            // Rotation is applied as a layer transform rather than by
-            // redrawing the image, so the icon's size and layout stay
-            // identical at every angle (the fan symbol's canvas is not
-            // square, so a redrawn bitmap got clipped while turning).
-            if symbolName == "fan", currentFanRPM > 0 {
-                iconAngle = (iconAngle + 45).truncatingRemainder(dividingBy: 360)
-            }
-            button.wantsLayer = true
-            // NSStatusBarButton's layer has anchorPoint (0, 0), so a bare
-            // rotation transform would pivot around the bottom-left
-            // corner. Compose translate-rotate-translate to spin around
-            // the button's center instead.
-            let bounds = button.bounds
-            button.layer?.setAffineTransform(
-                CGAffineTransform(translationX: bounds.midX, y: bounds.midY)
-                    .rotated(by: iconAngle * .pi / 180)
-                    .translatedBy(x: -bounds.midX, y: -bounds.midY))
             statusItem.length = NSStatusItem.squareLength
             return
         }
@@ -461,29 +399,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Actions
 
-    @objc private func toggleMetric(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        var selection = selectedIDs
-        if let index = selection.firstIndex(of: id) {
-            selection.remove(at: index)
-        } else {
-            selection.append(id)
-        }
+    private func setMetric(_ id: String, enabled: Bool) {
+        guard providers.contains(where: { $0.id == id }) else { return }
+        var selection = selectedIDs.filter { $0 != id }
+        if enabled { selection.append(id) }
         selectedIDs = selection
-        sender.state = selection.contains(id) ? .on : .off
-        // User intent: show exactly what is checked. If it doesn't
-        // fit, the per-tick check degrades again within seconds.
         hiddenWidgetCount = 0
         probeInFlight = false
         updateStatusBar()
     }
 
-    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
-        LoginItem.setEnabled(sender.state != .on)
-        sender.state = LoginItem.isEnabled ? .on : .off
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        panelModel.loginError = nil
+        do { try LoginItem.setEnabled(enabled) }
+        catch { panelModel.loginError = error.localizedDescription }
+        panelModel.loginState = LoginItem.state
     }
 
     @objc private func quit() {
+        let reopen = popover.isShown
+        popover.performClose(nil)
         // Ask before terminating so a misclick in the menu doesn't kill
         // the app. The version goes into the prompt for clarity.
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
@@ -495,6 +430,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn {
             NSApp.terminate(nil)
+        } else if reopen {
+            showPopover()
         }
     }
 }

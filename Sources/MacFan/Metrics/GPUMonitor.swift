@@ -17,7 +17,8 @@ final class GPUMonitor: MetricProvider {
         return MetricReading(menu: String(format: "GPU: %.0f%%", percent),
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
                                                      bottom: "GPU",
-                                                     topWidthTemplate: "100%"))
+                                                     topWidthTemplate: "100%"),
+                             value: .percent(percent))
     }
 
     private func utilization() -> Double? {

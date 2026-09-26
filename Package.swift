@@ -13,6 +13,7 @@ let package = Package(
                 .linkedFramework("AppKit"),
                 .linkedFramework("ServiceManagement"),
             ]
-        )
+        ),
+        .testTarget(name: "MacFanTests", dependencies: ["MacFan"])
     ]
 )

@@ -26,7 +26,9 @@ final class MemoryMonitor: MetricProvider {
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
                                                      bottom: "MEM",
                                                      topWidthTemplate: "100%"),
-                             heat: heat)
+                             heat: heat,
+                             value: .capacity(used: Double(used) / 1_073_741_824,
+                                              total: Double(totalBytes) / 1_073_741_824))
     }
 
     private func usedBytes() -> UInt64? {
