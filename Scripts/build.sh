@@ -25,7 +25,20 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$UNIVERSAL" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
-cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
+# Explicit flat Icon Composer artwork prevents macOS 26 from automatically
+# embossing the legacy ICNS. Keep our hand-rendered ICNS for macOS 13–15.
+echo "==> Compiling flat application icon (Xcode 26+)"
+xcrun actool Resources/MacFanFlat.icon \
+    --compile "$APP_DIR/Contents/Resources" \
+    --app-icon MacFanFlat --platform macosx --target-device mac \
+    --minimum-deployment-target 13.0 --development-region zh_CN \
+    --enable-on-demand-resources NO \
+    --enable-icon-stack-fallback-generation=disabled \
+    --include-all-app-icons \
+    --output-partial-info-plist "$BUILD_DIR/icon-info.plist"
+/usr/libexec/PlistBuddy -c 'Delete :CFBundleIconFile' "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c 'Merge build/icon-info.plist' "$APP_DIR/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/MacFanFlat.icns"
 cp Resources/MenuEyeOn.png Resources/MenuEyeOff.png "$APP_DIR/Contents/Resources/"
 
 echo "==> Ad-hoc code signing (required for launch-at-login)"

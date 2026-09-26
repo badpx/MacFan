@@ -1,121 +1,107 @@
 import AppKit
 
-// Generates the MacFan app icon: a squircle with a blue gradient
-// background and a white five-blade fan, at every size required
-// for an .iconset. Usage: swift Scripts/generate_icon.swift <outdir>
+// Match the popover's SF Symbols `fan` silhouette and teal palette.
+// Usage: swift Scripts/generate_icon.swift [build/AppIcon.iconset]
+//        iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
+// Every size is drawn directly from the vector symbol, not a scaled PNG.
 
-let size: CGFloat = 1024
-let bladeCount = 3
+let canvas: CGFloat = 1024
+let directory = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "build/AppIcon.iconset",
+                    isDirectory: true)
+try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-func drawIcon() -> NSImage {
-    let image = NSImage(size: NSSize(width: size, height: size))
-    image.lockFocus()
-    let ctx = NSGraphicsContext.current!.cgContext
+func color(_ hex: Int) -> NSColor {
+    NSColor(srgbRed: CGFloat((hex >> 16) & 255) / 255,
+            green: CGFloat((hex >> 8) & 255) / 255,
+            blue: CGFloat(hex & 255) / 255, alpha: 1)
+}
 
-    // Background: squircle with a diagonal blue gradient.
-    let inset = size * 0.0
-    let rect = CGRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
-    let squircle = NSBezierPath(roundedRect: rect, xRadius: size * 0.2237, yRadius: size * 0.2237)
-    ctx.saveGState()
-    squircle.addClip()
-    let colors = [
-        NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.98, alpha: 1).cgColor, // top-left light blue
-        NSColor(calibratedRed: 0.05, green: 0.20, blue: 0.75, alpha: 1).cgColor, // bottom-right deep blue
-    ] as CFArray
-    let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                              colors: colors,
-                              locations: [0, 1])!
-    ctx.drawLinearGradient(gradient,
-                           start: CGPoint(x: 0, y: size),
-                           end: CGPoint(x: size, y: 0),
-                           options: [])
-
-    let center = CGPoint(x: size / 2, y: size / 2)
-    let hubRadius = size * 0.085
-    let S = size
-
-    // Blades: comma-shaped, narrow at the hub and sweeping counter-clockwise.
-    ctx.saveGState()
-    ctx.translateBy(x: center.x, y: center.y)
-    ctx.setFillColor(NSColor.white.withAlphaComponent(0.96).cgColor)
-    for i in 0..<bladeCount {
-        ctx.saveGState()
-        ctx.rotate(by: CGFloat(i) * 2 * .pi / CGFloat(bladeCount))
-
-        let blade = CGMutablePath()
-        blade.move(to: CGPoint(x: 0.06 * S, y: 0.015 * S))
-        // Outer edge: flares out and sweeps up (counter-clockwise).
-        blade.addCurve(to: CGPoint(x: 0.20 * S, y: 0.30 * S),
-                       control1: CGPoint(x: 0.26 * S, y: -0.02 * S),
-                       control2: CGPoint(x: 0.33 * S, y: 0.10 * S))
-        // Rounded tip.
-        blade.addCurve(to: CGPoint(x: 0.045 * S, y: 0.27 * S),
-                       control1: CGPoint(x: 0.155 * S, y: 0.385 * S),
-                       control2: CGPoint(x: 0.05 * S, y: 0.35 * S))
-        // Inner edge back toward the hub.
-        blade.addQuadCurve(to: CGPoint(x: 0.06 * S, y: 0.015 * S),
-                           control: CGPoint(x: -0.01 * S, y: 0.14 * S))
-        blade.closeSubpath()
-        ctx.addPath(blade)
-        ctx.fillPath()
-        ctx.restoreGState()
+func render(pixelSize: Int, fullBleed: Bool = false) throws -> Data {
+    guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,
+                                       pixelsWide: pixelSize, pixelsHigh: pixelSize,
+                                       bitsPerSample: 8, samplesPerPixel: 4,
+                                       hasAlpha: true, isPlanar: false,
+                                       colorSpaceName: .deviceRGB,
+                                       bytesPerRow: 0, bitsPerPixel: 0),
+          let graphics = NSGraphicsContext(bitmapImageRep: bitmap),
+          let symbol = NSImage(systemSymbolName: "fan", accessibilityDescription: "MacFan") else {
+        throw NSError(domain: "MacFanIcon", code: 1,
+                      userInfo: [NSLocalizedDescriptionKey: "Cannot create fan symbol or bitmap"])
     }
-    ctx.restoreGState()
-
-    // Hub: solid circle with a small center dot.
-    ctx.setFillColor(NSColor.white.cgColor)
-    ctx.fillEllipse(in: CGRect(x: center.x - hubRadius, y: center.y - hubRadius,
-                               width: hubRadius * 2, height: hubRadius * 2))
-    ctx.setFillColor(NSColor(calibratedRed: 0.10, green: 0.32, blue: 0.88, alpha: 1).cgColor)
-    let dot = hubRadius * 0.45
-    ctx.fillEllipse(in: CGRect(x: center.x - dot, y: center.y - dot,
-                               width: dot * 2, height: dot * 2))
-
-    ctx.restoreGState() // squircle clip
-    image.unlockFocus()
-    return image
-}
-
-func savePNG(_ image: NSImage, pixelSize: Int, to url: URL) {
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
-                               pixelsWide: pixelSize,
-                               pixelsHigh: pixelSize,
-                               bitsPerSample: 8,
-                               samplesPerPixel: 4,
-                               hasAlpha: true,
-                               isPlanar: false,
-                               colorSpaceName: .deviceRGB,
-                               bytesPerRow: 0,
-                               bitsPerPixel: 0)!
     NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    image.draw(in: NSRect(x: 0, y: 0, width: pixelSize, height: pixelSize))
-    NSGraphicsContext.restoreGraphicsState()
-    try! rep.representation(using: .png, properties: [:])!.write(to: url)
+    defer { NSGraphicsContext.restoreGraphicsState() }
+    NSGraphicsContext.current = graphics
+    let context = graphics.cgContext
+    context.clear(CGRect(x: 0, y: 0, width: pixelSize, height: pixelSize))
+    context.scaleBy(x: CGFloat(pixelSize) / canvas, y: CGFloat(pixelSize) / canvas)
+
+    // Icon Composer supplies the macOS mask and outer shadow. Expand the
+    // existing tile to its canvas; baking in the legacy margins adds a second tile.
+    if fullBleed {
+        context.scaleBy(x: canvas / 832, y: canvas / 832)
+        context.translateBy(x: -96, y: -96)
+    }
+
+    // Optical inset aligns the tile with other macOS application icons.
+    let tile = NSRect(x: 96, y: 96, width: 832, height: 832)
+    let shape = NSBezierPath(roundedRect: tile, xRadius: 186, yRadius: 186)
+    if !fullBleed {
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: 0, height: -9), blur: 20,
+                          color: color(0x163E33).withAlphaComponent(0.14).cgColor)
+        color(0xE4F2ED).setFill()
+        shape.fill()
+        context.restoreGState()
+
+        context.saveGState()
+        shape.addClip()
+        NSGradient(starting: color(0xEDF7F2), ending: color(0xDBEEE5))!
+            .draw(in: tile, angle: -90)
+        context.restoreGState()
+
+        color(0x147A67).withAlphaComponent(0.10).setStroke()
+        let edge = NSBezierPath(roundedRect: tile.insetBy(dx: 1, dy: 1), xRadius: 185, yRadius: 185)
+        edge.lineWidth = 2
+        edge.stroke()
+    } else {
+        NSGradient(starting: color(0xEDF7F2), ending: color(0xDBEEE5))!
+            .draw(in: tile, angle: -90)
+    }
+
+    let configuration = NSImage.SymbolConfiguration(pointSize: 560, weight: .regular)
+        .applying(NSImage.SymbolConfiguration(paletteColors: [color(0x147A67)]))
+    guard let fan = symbol.withSymbolConfiguration(configuration) else {
+        throw NSError(domain: "MacFanIcon", code: 2)
+    }
+    let side: CGFloat = pixelSize <= 32 ? 596 : 572
+    let ratio = fan.size.width / fan.size.height
+    let width = ratio >= 1 ? side : side * ratio
+    let height = ratio >= 1 ? side / ratio : side
+    fan.draw(in: NSRect(x: (canvas - width) / 2, y: (canvas - height) / 2,
+                       width: width, height: height),
+             from: .zero, operation: .sourceOver, fraction: 1)
+
+    guard let png = bitmap.representation(using: .png, properties: [:]) else {
+        throw NSError(domain: "MacFanIcon", code: 3)
+    }
+    return png
 }
 
-let outdir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "build/AppIcon.iconset"
-let fm = FileManager.default
-try? fm.removeItem(atPath: outdir)
-try! fm.createDirectory(atPath: outdir, withIntermediateDirectories: true)
-
-let icon = drawIcon()
-// iconset naming: icon_16x16.png, icon_16x16@2x.png (32px), ...
-let specs: [(String, Int)] = [
-    ("icon_16x16.png", 16),
-    ("icon_16x16@2x.png", 32),
-    ("icon_32x32.png", 32),
-    ("icon_32x32@2x.png", 64),
-    ("icon_128x128.png", 128),
-    ("icon_128x128@2x.png", 256),
-    ("icon_256x256.png", 256),
-    ("icon_256x256@2x.png", 512),
-    ("icon_512x512.png", 512),
-    ("icon_512x512@2x.png", 1024),
+let sizes: [(String, Int)] = [
+    ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
+    ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
+    ("icon_128x128.png", 128), ("icon_128x128@2x.png", 256),
+    ("icon_256x256.png", 256), ("icon_256x256@2x.png", 512),
+    ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024),
 ]
-for (name, px) in specs {
-    savePNG(icon, pixelSize: px, to: URL(fileURLWithPath: outdir).appendingPathComponent(name))
+for (name, pixels) in sizes {
+    try render(pixelSize: pixels).write(to: directory.appendingPathComponent(name))
 }
-// Preview for visual inspection.
-savePNG(icon, pixelSize: 1024, to: URL(fileURLWithPath: "build/icon_preview.png"))
-print("iconset written to \(outdir)")
+let preview = directory.deletingLastPathComponent().appendingPathComponent("icon_preview.png")
+try render(pixelSize: 1024).write(to: preview)
+let composerAssets = URL(fileURLWithPath: "Resources/MacFanFlat.icon/Assets", isDirectory: true)
+try FileManager.default.createDirectory(at: composerAssets, withIntermediateDirectories: true)
+try render(pixelSize: 1024, fullBleed: true)
+    .write(to: composerAssets.appendingPathComponent("Artwork.png"))
+print("Iconset: \(directory.path)")
+print("Preview: \(preview.path)")

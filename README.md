@@ -57,6 +57,18 @@ swift run MacFan --ui-snapshot build/ui-check -AppleLanguages '(zh-Hans)'
 
 快照模式仅包含在 debug 构建中，使用固定示例数据生成浅色、深色、设置页、告警、不可用和小屏状态图片，不读取传感器、不改写指标选择或开机自启动。实际应用仅在面板打开时向 SwiftUI 发布采样结果；菜单栏继续使用单视图绘制。
 
+## 应用图标
+
+应用图标沿用弹出面板的 SF Symbols `fan` 轮廓与青绿色，使用浅薄荷色圆角底板。生成器从矢量符号分别绘制 16–1024px 各尺寸，小尺寸作轻微光学校正。
+
+macOS 26 会对旧式 ICNS 自动添加玻璃高光和浮雕。因此打包使用 Xcode 26+ 编译 `Resources/MacFanFlat.icon`，明确关闭图层玻璃材质、高光、阴影和半透明，保留纯色风扇线条；macOS 13–15 继续使用 ICNS。生成器同时输出不带外部留白的 Icon Composer 画稿，由系统提供圆角遮罩。不要只复制 ICNS 来替代完整打包。
+
+```bash
+swift Scripts/generate_icon.swift
+iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
+bash Scripts/build.sh
+```
+
 ## 卸载
 
 ```bash
