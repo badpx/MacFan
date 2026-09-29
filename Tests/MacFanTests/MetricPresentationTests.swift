@@ -15,35 +15,25 @@ final class MetricPresentationTests: XCTestCase {
     }
 
     func testUnavailableAndZeroNetworkRatesRemainDistinct() {
-        XCTAssertEqual(MetricFormat.rate(nil).value, "—")
+        XCTAssertEqual(MetricFormat.rate(nil).value, "N/A")
+        XCTAssertEqual(MetricFormat.rate(nil).unit, "")
         XCTAssertEqual(MetricFormat.rate(0).value, "0")
         XCTAssertEqual(MetricFormat.rate(0).unit, "B/s")
         XCTAssertEqual(MetricFormat.rate(32_100).value, "32.1")
         XCTAssertEqual(MetricFormat.rate(32_100).unit, "KB/s")
         XCTAssertEqual(MetricFormat.rate(1_000_000).unit, "MB/s")
         XCTAssertEqual(MetricFormat.rate(1_000_000_000).unit, "GB/s")
-        XCTAssertEqual(MetricFormat.rate(.infinity).value, "—")
+        XCTAssertEqual(MetricFormat.rate(.infinity).value, "N/A")
     }
 
     func testPartialInboundFailureDoesNotHideUpload() {
         let model = PopoverModel()
         model.readings = ["network": MetricReading(menu: "", value: .network(download: nil, upload: 10_200))]
-        XCTAssertTrue(model.hasUnavailableReadings)
         guard case .network(let download, let upload) = model.readings["network"]?.value else {
             return XCTFail("Expected structured network reading")
         }
-        XCTAssertNil(download)
+        XCTAssertEqual(MetricFormat.rate(download).value, "N/A")
         XCTAssertEqual(MetricFormat.rate(upload).value, "10.2")
-        model.readings = ["network": MetricReading(menu: "", value: .network(download: 0, upload: 0))]
-        XCTAssertFalse(model.hasUnavailableReadings)
-    }
-
-    func testStoppedVersusUnavailableFanDescription() {
-        let model = PopoverModel()
-        model.readings["fan"] = MetricReading(menu: "", value: .fan(0))
-        XCTAssertTrue(model.note(for: "fan").contains(L10n.ui(.stopped)))
-        model.readings["fan"] = MetricReading(menu: "")
-        XCTAssertEqual(model.note(for: "fan"), L10n.ui(.averageUnavailable))
     }
 
     func testHeatIsContinuousAndClamped() {

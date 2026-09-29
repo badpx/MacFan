@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Menu bar controller with a native popover and one shared 2s sampler.
@@ -135,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let panelModel = PopoverModel()
     private var keyMonitor: Any?
     private var timer: Timer?
+    private var cancellables: Set<AnyCancellable> = []
 
     /// Ordered metrics; add new providers here.
     private let providers: [MetricProvider] = [
@@ -184,6 +186,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         panelModel.onLogin = { [weak self] enabled in self?.setLaunchAtLogin(enabled) }
         panelModel.onQuit = { [weak self] in self?.quit() }
         panelModel.onPage = { [weak self] in self?.resizePopover() }
+        // Resize as soon as the view reports a new measured content height,
+        // instead of waiting for the next 2s refresh tick.
+        panelModel.$contentHeight
+            .sink { [weak self] _ in self?.resizePopover() }
+            .store(in: &cancellables)
         NotificationCenter.default.addObserver(self, selector: #selector(refreshLoginState),
                                                name: NSApplication.didBecomeActiveNotification, object: nil)
 
@@ -230,7 +237,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         resizePopover()
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
+        // Deliberately not made key: a key window puts an initial focus
+        // ring on the first control. Esc / ⌘Q still work via the local
+        // key monitor, which sees events for the active app regardless.
         if keyMonitor == nil {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 guard let self, self.popover.isShown else { return event }
@@ -249,12 +258,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         keyMonitor = nil
     }
 
+    /// Sizes the popover to the measured content height plus the fixed
+    /// chrome (tab bar + footer), so every metric row fits exactly and no
+    /// scroll bar appears. Falls back to estimates before the first layout.
     private func resizePopover() {
         let screen = statusItem.button?.window?.screen ?? NSScreen.main
         let available = max(300, (screen?.visibleFrame.height ?? 900) - 32)
-        let desired: CGFloat = panelModel.page == .overview ? 724 : 672
-        panelModel.height = min(desired, available)
-        popover.contentSize = NSSize(width: 384, height: panelModel.height)
+        let chrome: CGFloat = 73
+        let fallback: CGFloat = panelModel.page == .overview ? 302 : 500
+        let desired = panelModel.contentHeight > 0
+            ? ceil(panelModel.contentHeight + chrome) : fallback
+        let height = min(desired, available)
+        if panelModel.height != height { panelModel.height = height }
+        popover.contentSize = NSSize(width: 384, height: height)
     }
 
     private func syncPopover(force: Bool = false) {
@@ -420,10 +436,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let reopen = popover.isShown
         popover.performClose(nil)
         // Ask before terminating so a misclick in the menu doesn't kill
-        // the app. The version goes into the prompt for clarity.
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        // the app.
         let alert = NSAlert()
-        alert.messageText = String(format: L10n.tr(.quitConfirm), "v" + version)
+        alert.messageText = L10n.tr(.quitConfirm)
         alert.addButton(withTitle: L10n.tr(.quit))
         alert.addButton(withTitle: L10n.tr(.cancel))
         // Accessory app: bring the alert to the front explicitly.

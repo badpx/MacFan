@@ -24,7 +24,7 @@ enum PopoverPreview {
             "network": .init(menu: "", value: .network(download: 32_100, upload: 10_200)),
         ]
         let controller = NSHostingController(rootView: PopoverView(model: model))
-        let window = PreviewWindow(contentRect: NSRect(x: 100, y: 100, width: 384, height: 724),
+        let window = PreviewWindow(contentRect: NSRect(x: 100, y: 100, width: 384, height: 302),
                               styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentViewController = controller
         window.isReleasedWhenClosed = false
@@ -35,12 +35,12 @@ enum PopoverPreview {
         catch { fputs("\(error)\n", stderr); exit(1) }
 
         let scenarios: [(String, NSAppearance.Name, PopoverPage, CGFloat)] = [
-            ("native-light", .aqua, .overview, 724),
-            ("native-dark", .darkAqua, .overview, 724),
-            ("native-settings", .aqua, .configuration, 672),
-            ("native-heat", .darkAqua, .overview, 724),
-            ("native-unavailable", .aqua, .overview, 724),
-            ("native-short-screen", .aqua, .overview, 520),
+            ("native-light", .aqua, .overview, 302),
+            ("native-dark", .darkAqua, .overview, 302),
+            ("native-settings", .aqua, .configuration, 500),
+            ("native-heat", .darkAqua, .overview, 302),
+            ("native-unavailable", .aqua, .overview, 302),
+            ("native-short-screen", .aqua, .overview, 240),
         ]
         var index = 0
         func next() {
@@ -68,7 +68,7 @@ enum PopoverPreview {
                 guard let png = bitmap.representation(using: .png, properties: [:]) else { exit(1) }
                 do { try png.write(to: directory.appendingPathComponent(name + ".png")) }
                 catch { fputs("\(error)\n", stderr); exit(1) }
-                print("Rendered \(name)")
+                print("Rendered \(name) (content \(model.contentHeight)pt -> popover \(ceil(model.contentHeight + 73))pt)")
                 index += 1
                 next()
             }

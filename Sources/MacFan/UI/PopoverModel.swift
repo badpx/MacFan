@@ -27,34 +27,14 @@ final class PopoverModel: ObservableObject {
     @Published var loginState: LoginItem.State = .disabled
     @Published var loginError: String?
     @Published var page: PopoverPage = .overview
-    @Published var height: CGFloat = 724
+    @Published var height: CGFloat = 302
+    /// Measured height of the scrollable page content, reported by the view.
+    /// 0 until the first layout pass.
+    @Published var contentHeight: CGFloat = 0
     var onSelection: ((String, Bool) -> Void)?
     var onLogin: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
     var onPage: (() -> Void)?
-
-    var hasUnavailableReadings: Bool {
-        readings.values.contains { reading in
-            if reading.value == nil { return true }
-            if case .network(let down, let up) = reading.value { return down == nil || up == nil }
-            return false
-        }
-    }
-
-    func note(for id: String) -> String {
-        guard let reading = readings[id] else { return L10n.ui(.sampling) }
-        guard reading.value != nil else {
-            return L10n.ui(id == "fan" ? .averageUnavailable : .unavailable)
-        }
-        if id == "temperature" {
-            guard let heat = reading.heat else { return L10n.ui(.sensor) }
-            return L10n.ui(heat >= 1 ? .temperatureCritical : .temperatureHigh)
-        }
-        if id == "fan" {
-            return L10n.ui(.average) + (reading.value?.scalar == 0 ? " · " + L10n.ui(.stopped) : "")
-        }
-        return ""
-    }
 }
 
 enum MetricFormat {
@@ -64,7 +44,7 @@ enum MetricFormat {
     }
 
     static func rate(_ bytes: Double?) -> (value: String, unit: String) {
-        guard let bytes, bytes.isFinite, bytes >= 0 else { return ("—", L10n.ui(.unavailable)) }
+        guard let bytes, bytes.isFinite, bytes >= 0 else { return ("N/A", "") }
         switch bytes {
         case ..<1_000: return (number(bytes, decimals: 0), "B/s")
         case ..<1_000_000: return (number(bytes / 1_000), "KB/s")
