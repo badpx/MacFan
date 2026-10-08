@@ -11,8 +11,10 @@ APP_DIR="$BUILD_DIR/$APP_NAME.app"
 echo "==> Compiling (release, per-arch)"
 BINARIES=()
 for arch in arm64 x86_64; do
-    swift build -c release --arch "$arch"
-    BINARIES+=("$(swift build -c release --arch "$arch" --show-bin-path)/$APP_NAME")
+    # --build-system native: the default SwiftBuild backend fails on this
+    # toolchain ("no extensions provided a fallback value" for the dev dir).
+    swift build -c release --arch "$arch" --build-system native
+    BINARIES+=("$(swift build -c release --arch "$arch" --build-system native --show-bin-path)/$APP_NAME")
 done
 
 echo "==> Creating universal binary"
