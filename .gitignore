@@ -2,3 +2,6 @@
 build/
 *.swp
 .DS_Store
+# 空的 npm 占位文件，项目不使用 Node 工具链
+package.json
+package-lock.json
