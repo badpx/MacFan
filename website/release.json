@@ -1,0 +1,10 @@
+{
+  "tag_name": "v1.1.2",
+  "html_url": "https://github.com/badpx/MacFan/releases/tag/v1.1.2",
+  "draft": false,
+  "prerelease": false,
+  "assets": [{
+    "name": "MacFan-v1.1.2.zip",
+    "browser_download_url": "https://github.com/badpx/MacFan/releases/download/v1.1.2/MacFan-v1.1.2.zip"
+  }]
+}

@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Build the static product site for every language MacFan ships."""
+import argparse
+import hashlib
+import html
+import json
+import re
+import shutil
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parents[1]
+LANGUAGES = {
+    "en": "English",
+    "zh-Hans": "简体中文",
+    "zh-Hant": "繁體中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "hi": "हिन्दी",
+    "es": "Español",
+    "fr": "Français",
+    "bn": "বাংলা",
+    "ru": "Русский",
+    "pt": "Português",
+}
+TOKEN = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
+TABLE_KEY = re.compile(r'^        "([^"]+)": \[', re.M)
+
+
+def catalog(language):
+    source = ROOT / "website/locales" / f"{language}.json"
+    result = json.loads(source.read_text())
+    if not isinstance(result, dict):
+        raise ValueError(f"Locale must be an object: {language}")
+    return result
+
+
+def app_languages():
+    source = (ROOT / "Sources/MacFan/L10n.swift").read_text()
+    return set(TABLE_KEY.findall(source))
+
+
+def build(output, base, site_url, release_file):
+    if base and (not base.startswith("/") or base.endswith("/") or ".." in base):
+        raise ValueError("Base must be empty or an absolute path without a trailing slash")
+    if urlparse(site_url).scheme != "https":
+        raise ValueError("The canonical site URL must use HTTPS")
+    release = json.loads(release_file.read_text())
+    if release.get("draft") or release.get("prerelease"):
+        raise ValueError("The website must link to a public stable release")
+    tag = release.get("tag_name", "")
+    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+        raise ValueError("Unexpected release tag")
+    expected_name = f"MacFan-{tag}.zip"
+    assets = [item for item in release["assets"] if item["name"] == expected_name]
+    if len(assets) != 1:
+        raise ValueError(f"Expected exactly one {expected_name} in the latest release")
+    download = assets[0]["browser_download_url"]
+    prefix = f"https://github.com/badpx/MacFan/releases/download/{tag}/"
+    if not download.startswith(prefix) or not download.endswith(expected_name):
+        raise ValueError("Unexpected download URL")
+    if release["html_url"] != f"https://github.com/badpx/MacFan/releases/tag/{tag}":
+        raise ValueError("Unexpected release URL")
+
+    template = (ROOT / "website/index.template.html").read_text()
+    required = {key for key in TOKEN.findall(template) if key.startswith("Website.")}
+    catalogs = {language: catalog(language) for language in LANGUAGES}
+    if app_languages() != set(LANGUAGES):
+        raise ValueError("Website languages must match the tables in L10n.swift")
+    expected = set(catalogs["en"])
+    if required != expected:
+        raise ValueError(f"Template/catalog key mismatch: {sorted(required ^ expected)}")
+    for language, values in catalogs.items():
+        if set(values) != expected or any(not str(values[key]).strip() for key in expected):
+            raise ValueError(f"Incomplete website translations: {language}")
+
+    # Only the generated build directory is replaced; source files are never removed.
+    if output.resolve() != (ROOT / "build/website").resolve():
+        raise ValueError("Output must be build/website")
+    if output.exists():
+        shutil.rmtree(output)
+    (output / "assets").mkdir(parents=True)
+    asset_versions = {}
+    for name in ("style.css", "site.js"):
+        shutil.copyfile(ROOT / "website" / name, output / "assets" / name)
+        asset_versions[name] = hashlib.sha256((output / "assets" / name).read_bytes()).hexdigest()[:12]
+    for destination, source in {
+        "favicon.png": "website/favicon.png",
+        "app-icon.png": "Design/MacFan-UI/MacFan-AppIcon.png",
+        "preview-light.png": "Design/MacFan-UI/MacFan-Light.png",
+        "preview-dark.png": "Design/MacFan-UI/MacFan-Dark.png",
+    }.items():
+        shutil.copyfile(ROOT / source, output / "assets" / destination)
+
+    def suffix(language):
+        return "/" if language == "en" else f"/{language}/"
+
+    for language, values in catalogs.items():
+        replacements = dict(values)
+        replacements.update({
+            "_lang": language,
+            "_base": base,
+            "_home": base + suffix(language),
+            "_canonical": site_url + suffix(language),
+            "_site_url": site_url,
+            "_download": download,
+            "_release": release["html_url"],
+            "_version": tag,
+            "_style_version": asset_versions["style.css"],
+            "_script_version": asset_versions["site.js"],
+        })
+        raw = {
+            "_alternates": "\n  ".join(
+                f'<link rel="alternate" hreflang="{code}" href="{html.escape(site_url + suffix(code), quote=True)}">'
+                for code in LANGUAGES
+            ) + f'\n  <link rel="alternate" hreflang="x-default" href="{html.escape(site_url, quote=True)}/">',
+            "_languages": "".join(
+                f'<option value="{html.escape(base + suffix(code), quote=True)}"{" selected" if code == language else ""}>{label}</option>'
+                for code, label in LANGUAGES.items()
+            ),
+        }
+
+        def replace(match, replacements=replacements, raw=raw):
+            key = match.group(1)
+            if key not in raw and key not in replacements:
+                raise ValueError(f"Missing template value: {key}")
+            return raw[key] if key in raw else html.escape(str(replacements[key]), quote=True)
+
+        page = TOKEN.sub(replace, template)
+        if "{{" in page or "}}" in page:
+            raise ValueError(f"Unreplaced template token in {language}")
+        destination = output if language == "en" else output / language
+        destination.mkdir(exist_ok=True)
+        (destination / "index.html").write_text(page)
+    urls = "".join(f"<url><loc>{html.escape(site_url + suffix(code))}</loc></url>" for code in LANGUAGES)
+    (output / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n'
+    )
+    (output / ".nojekyll").touch()
+    print(f"Built {len(LANGUAGES)} languages → {output.relative_to(ROOT)} ({tag})")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base", default="/MacFan")
+    parser.add_argument("--site-url", default="https://badpx.github.io/MacFan")
+    parser.add_argument("--release-json", type=Path, default=ROOT / "website/release.json")
+    arguments = parser.parse_args()
+    build(ROOT / "build/website", arguments.base, arguments.site_url.rstrip("/"), arguments.release_json)
