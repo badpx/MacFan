@@ -476,6 +476,28 @@ h2 {
 
 .steps li:last-child { border:0; padding-right:0; }
 
+.settings-shot {
+  width:min(360px,100%);
+  margin:64px auto 0;
+}
+
+.settings-shot img {
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:18px;
+  box-shadow:0 20px 40px -16px #1d3c3455,0 0 0 1px #c5d5ce;
+  background:#f5f6f8;
+}
+
+.settings-shot figcaption {
+  margin-top:12px;
+  text-align:center;
+  font-size:12px;
+  letter-spacing:.04em;
+  color:var(--muted);
+}
+
 .step-top {
   height:50px;
   display:flex;
@@ -864,7 +886,8 @@ html[lang=hi] .hero h1,html[lang=bn] .hero h1 { font-size:clamp(36px,4vw,52px); 
   .menu-bar { height:32px; font-size:10px; margin-bottom:14px; padding-inline:12px; gap:12px; }
   .status-icon { width:22px; height:22px; }
   .status-icon img { width:18px; height:18px; }
-  .panel-window { border-radius:14px; }
+  .panel-window,.settings-shot img { border-radius:14px; }
+  .settings-shot { margin-top:36px; }
   .preview-controls { font-size:9px; gap:7px; }
   .theme-controls button { font-size:10px; min-height:30px; padding:5px 9px; }
   .workflow { padding-top:36px; padding-bottom:42px; }

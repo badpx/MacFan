@@ -89,10 +89,13 @@ def build(output, base, site_url, release_file):
         "app-icon.png": "Design/MacFan-UI/MacFan-AppIcon.png",
         "preview-light-en.png": "website/preview/preview-light-en.png",
         "preview-dark-en.png": "website/preview/preview-dark-en.png",
+        "preview-settings-en.png": "website/preview/preview-settings-en.png",
         "preview-light-zh-Hans.png": "website/preview/preview-light-zh-Hans.png",
         "preview-dark-zh-Hans.png": "website/preview/preview-dark-zh-Hans.png",
+        "preview-settings-zh-Hans.png": "website/preview/preview-settings-zh-Hans.png",
         "preview-light-zh-Hant.png": "website/preview/preview-light-zh-Hant.png",
         "preview-dark-zh-Hant.png": "website/preview/preview-dark-zh-Hant.png",
+        "preview-settings-zh-Hant.png": "website/preview/preview-settings-zh-Hant.png",
     }.items():
         shutil.copyfile(ROOT / source, output / "assets" / destination)
 

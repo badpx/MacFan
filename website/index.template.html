@@ -69,7 +69,7 @@
             <img class="preview-image preview-dark" src="{{ _base }}/assets/preview-dark-{{ _preview_language }}.png" width="768" height="604" alt="" loading="lazy" aria-hidden="true">
           </div>
         </div>
-        <div class="preview-controls"><span>{{ Website.preview }}</span><div class="theme-controls" role="group" aria-label="{{ Website.preview }}"><button type="button" data-theme="light" aria-pressed="true"><svg aria-hidden="true"><use href="#sun"/></svg>{{ Website.light }}</button><button type="button" data-theme="dark" aria-pressed="false"><svg aria-hidden="true"><use href="#moon"/></svg>{{ Website.dark }}</button></div></div>
+        <div class="preview-controls"><div class="theme-controls" role="group" aria-label="{{ Website.light }} / {{ Website.dark }}"><button type="button" data-theme="light" aria-pressed="true"><svg aria-hidden="true"><use href="#sun"/></svg>{{ Website.light }}</button><button type="button" data-theme="dark" aria-pressed="false"><svg aria-hidden="true"><use href="#moon"/></svg>{{ Website.dark }}</button></div></div>
       </div>
     </section>
 
@@ -80,6 +80,10 @@
         <li><div class="step-top"><span class="step-number">02</span><span class="step-toggle" aria-hidden="true"></span></div><h3>{{ Website.chooseTitle }}</h3><p>{{ Website.chooseBody }}</p></li>
         <li><div class="step-top"><span class="step-number">03</span><span class="step-keys"><kbd>2s</kbd></span></div><h3>{{ Website.stayTitle }}</h3><p>{{ Website.stayBody }}</p></li>
       </ol>
+      <figure class="settings-shot">
+        <img src="{{ _base }}/assets/preview-settings-{{ _preview_language }}.png" width="768" height="1000" alt="{{ Website.settingsAlt }}" loading="lazy">
+        <figcaption>{{ Website.settingsCaption }}</figcaption>
+      </figure>
     </section>
 
     <section class="features-section" id="features"><div class="features-layout wrap">
