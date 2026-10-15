@@ -87,8 +87,12 @@ def build(output, base, site_url, release_file):
     for destination, source in {
         "favicon.png": "website/favicon.png",
         "app-icon.png": "Design/MacFan-UI/MacFan-AppIcon.png",
-        "preview-light.png": "Design/MacFan-UI/MacFan-Light.png",
-        "preview-dark.png": "Design/MacFan-UI/MacFan-Dark.png",
+        "preview-light-en.png": "website/preview/preview-light-en.png",
+        "preview-dark-en.png": "website/preview/preview-dark-en.png",
+        "preview-light-zh-Hans.png": "website/preview/preview-light-zh-Hans.png",
+        "preview-dark-zh-Hans.png": "website/preview/preview-dark-zh-Hans.png",
+        "preview-light-zh-Hant.png": "website/preview/preview-light-zh-Hant.png",
+        "preview-dark-zh-Hant.png": "website/preview/preview-dark-zh-Hant.png",
     }.items():
         shutil.copyfile(ROOT / source, output / "assets" / destination)
 
@@ -106,6 +110,7 @@ def build(output, base, site_url, release_file):
             "_download": download,
             "_release": release["html_url"],
             "_version": tag,
+            "_preview_language": language if language in ("zh-Hans", "zh-Hant") else "en",
             "_style_version": asset_versions["style.css"],
             "_script_version": asset_versions["site.js"],
         })

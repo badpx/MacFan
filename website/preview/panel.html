@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <title>MacFan panel</title>
+  <style>
+    :root {
+      --bg:#F5F6F8; --text:#000; --secondary:#626972; --line:#DFE2E7; --accent:#147A67;
+      color-scheme:light;
+    }
+    html.dark {
+      --bg:#202225; --text:#fff; --secondary:#ADB3BC; --line:#41444B; --accent:#71D5BA;
+      color-scheme:dark;
+    }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:768px; height:604px; overflow:hidden; background:var(--bg); }
+    body {
+      font-family:Inter,"WenQuanYi Micro Hei",sans-serif;
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+    }
+    .panel { width:768px; height:604px; display:flex; flex-direction:column; background:var(--bg); }
+    .tabs {
+      display:flex; justify-content:center; gap:64px;
+      padding:20px 0 0; border-bottom:2px solid var(--line);
+    }
+    .tab { display:flex; flex-direction:column; align-items:center; gap:14px; font-size:28px; line-height:34px; color:var(--secondary); font-weight:400; }
+    .tab.on { color:var(--text); font-weight:600; }
+    .mark { width:44px; height:5px; border-radius:5px; background:transparent; }
+    .tab.on .mark { background:var(--accent); }
+    .body { padding:28px 40px 20px; }
+    .stats { display:grid; grid-template-columns:1fr 1fr 1fr; text-align:center; }
+    .stats b {
+      display:block; font-size:48px; font-weight:500; line-height:56px;
+      font-variant-numeric:tabular-nums; letter-spacing:-0.4px;
+    }
+    .stats span { display:block; margin-top:10px; font-size:22px; line-height:26px; color:var(--secondary); font-weight:400; }
+    .rule { height:2px; background:var(--line); margin:24px 0; }
+    .row {
+      min-height:64px; display:flex; align-items:center; gap:20px;
+      font-size:26px; line-height:32px; font-variant-numeric:tabular-nums;
+    }
+    .ico { width:40px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--secondary); flex:none; }
+    .ico svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+    .down { color:var(--secondary); margin-left:28px; }
+    .hair { height:2px; background:var(--line); margin-left:60px; }
+    .foot {
+      margin-top:auto; border-top:2px solid var(--line);
+      display:flex; justify-content:space-between; align-items:center;
+      padding:20px 40px; font-size:22px; line-height:26px; color:var(--secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab on" id="tab-overview"><span></span><i class="mark"></i></div>
+      <div class="tab" id="tab-settings"><span></span><i class="mark"></i></div>
+    </div>
+    <div class="body">
+      <div class="stats">
+        <div><b>20%</b><span id="cpu"></span></div>
+        <div><b>52°C</b><span id="temp"></span></div>
+        <div><b>4%</b><span id="gpu"></span></div>
+      </div>
+      <div class="rule"></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.2c.2-3.2 1.7-5.2 4.8-5.8-.7 3-2.4 4.8-4.8 5.8Zm0 3.6c-.2 3.2-1.7 5.2-4.8 5.8.7-3 2.4-4.8 4.8-5.8Zm1.7-1.8c3.2-.2 5.2-1.7 5.8-4.8-3 .7-4.8 2.4-5.8 4.8Zm-3.4 0c-3.2.2-5.2 1.7-5.8 4.8 3-.7 4.8-2.4 5.8-4.8Z"/></svg></span><span id="fan"></span></div>
+      <div class="hair"></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 8h16v9H4z"/><path d="M8 8V6m4 2V6m4 2V6M7 17v2m5-2v2m5-2v2"/></svg></span><span id="memory"></span></div>
+      <div class="hair"></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h4M7 14h2"/></svg></span><span id="disk"></span></div>
+      <div class="hair"></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 4v10m-4-4 4-4 4 4M12 20V10m4 4-4 4-4-4"/></svg></span><span id="up"></span><span class="down" id="down"></span></div>
+    </div>
+    <div class="foot"><span id="count"></span><span>MacFan v1.0.0</span></div>
+  </div>
+  <script>
+    const copy = {
+      en: {
+        overview: "System overview", settings: "Settings",
+        cpu: "CPU usage", temp: "CPU temperature", gpu: "GPU usage",
+        fan: "Fan 0 RPM",
+        memory: "Available 7.8 GB · of 32 GB",
+        disk: "Available 669 GB · of 995 GB",
+        up: "↑ 10.2 KB/s", down: "↓ 32.1 KB/s",
+        count: "Menu bar · 4 items"
+      },
+      "zh-Hans": {
+        overview: "系统概览", settings: "设置",
+        cpu: "CPU 占用", temp: "CPU 温度", gpu: "GPU 占用",
+        fan: "风扇 0 RPM",
+        memory: "可用 7.8 GB · 共 32 GB",
+        disk: "可用 669 GB · 共 995 GB",
+        up: "↑ 10.2 KB/s", down: "↓ 32.1 KB/s",
+        count: "菜单栏 · 4 项"
+      },
+      "zh-Hant": {
+        overview: "系統概覽", settings: "設定",
+        cpu: "CPU 佔用", temp: "CPU 溫度", gpu: "GPU 佔用",
+        fan: "風扇 0 RPM",
+        memory: "可用 7.8 GB · 共 32 GB",
+        disk: "可用 669 GB · 共 995 GB",
+        up: "↑ 10.2 KB/s", down: "↓ 32.1 KB/s",
+        count: "選單列 · 4 項"
+      }
+    };
+    const q = new URLSearchParams(location.search);
+    const lang = copy[q.get("lang")] ? q.get("lang") : "zh-Hans";
+    const text = copy[lang];
+    if (q.get("theme") === "dark") document.documentElement.classList.add("dark");
+    document.documentElement.lang = lang;
+    for (const id of ["cpu","temp","gpu","fan","memory","disk","up","down","count"]) {
+      document.getElementById(id).textContent = text[id];
+    }
+    document.querySelector("#tab-overview span").textContent = text.overview;
+    document.querySelector("#tab-settings span").textContent = text.settings;
+  </script>
+</body>
+</html>

@@ -336,8 +336,8 @@ a:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible 
 
 .panel-stage {
   position:relative;
-  width:min(312px,92%);
-  margin-right:18px;
+  width:min(460px,100%);
+  margin-right:4px;
 }
 
 .visual-backdrop {
@@ -362,7 +362,7 @@ a:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible 
 
 .panel-window {
   position:relative;
-  aspect-ratio:844 / 1688;
+  aspect-ratio:384 / 302;
   overflow:hidden;
   border-radius:18px;
   box-shadow:0 20px 40px -16px #1d3c3455,0 0 0 1px #c5d5ce;
@@ -860,7 +860,7 @@ html[lang=hi] .hero h1,html[lang=bn] .hero h1 { font-size:clamp(36px,4vw,52px); 
   .button { font-size:13px; min-height:52px; padding:15px 18px; gap:9px; }
   .button-arrow { margin-left:6px; }
   .download-meta { font-size:10px; gap:8px; margin-top:16px; }
-  .panel-stage { width:min(250px,78%); }
+  .panel-stage { width:min(100%,340px); margin-right:0; }
   .menu-bar { height:32px; font-size:10px; margin-bottom:14px; padding-inline:12px; gap:12px; }
   .status-icon { width:22px; height:22px; }
   .status-icon img { width:18px; height:18px; }
