@@ -6,7 +6,7 @@ on:
     paths:
       - 'website/**'
       - 'Scripts/build-website.py'
-      - 'Sources/MacFan/L10n.swift'
+      - 'Sources/MenuGauge/L10n.swift'
       - 'Design/MacFan-UI/**'
       - 'Resources/**'
       - '.github/workflows/pages.yml'

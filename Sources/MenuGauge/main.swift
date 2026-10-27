@@ -9,7 +9,7 @@ if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshot"),
 #endif
 
 // Debug mode: dump raw SMC data for fan-related keys.
-//   MacFan --fandump
+//   MenuGauge --fandump
 // The App Store binary does not contain the AppleSMC client.
 #if MAS
 if CommandLine.arguments.contains("--fandump") {
@@ -38,7 +38,7 @@ if CommandLine.arguments.contains("--fandump") {
 #endif
 
 // Smoke-test mode for CLI verification of the sensor plumbing:
-//   MacFan --smoke
+//   MenuGauge --smoke
 if CommandLine.arguments.contains("--smoke") {
     // Keep in sync with AppDelegate.providers.
     let providers: [MetricProvider] = [

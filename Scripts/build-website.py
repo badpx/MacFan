@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the static product site for every language MacFan ships."""
+"""Build the static product site for every language MenuGauge ships."""
 import argparse
 import hashlib
 import html
@@ -36,17 +36,28 @@ def catalog(language):
 
 
 def app_languages():
-    source = (ROOT / "Sources/MacFan/L10n.swift").read_text()
+    source = (ROOT / "Sources/MenuGauge/L10n.swift").read_text()
     return set(TABLE_KEY.findall(source))
 
 
 def release_download(release, tag):
-    """Prefer the notarized disk image. Older releases are still a zip."""
+    """Prefer the notarized MenuGauge disk image.
+
+    The GitHub repository is still badpx/MacFan. Releases published before
+    the rename are MacFan-<tag>.dmg or .zip; keep accepting those so the
+    current release can still build the site.
+    """
     prefix = f"https://github.com/badpx/MacFan/releases/download/{tag}/"
     assets = release.get("assets")
     if not isinstance(assets, list):
         raise ValueError("Release is missing assets")
-    for name in (f"MacFan-{tag}.dmg", f"MacFan-{tag}.zip"):
+    names = (
+        f"MenuGauge-{tag}.dmg",
+        f"MenuGauge-{tag}.zip",
+        f"MacFan-{tag}.dmg",
+        f"MacFan-{tag}.zip",
+    )
+    for name in names:
         matches = [item for item in assets if item.get("name") == name]
         if len(matches) > 1:
             raise ValueError(f"Expected at most one {name} in the latest release")
@@ -57,7 +68,8 @@ def release_download(release, tag):
             raise ValueError("Unexpected download URL")
         return download
     raise ValueError(
-        f"Expected MacFan-{tag}.dmg (preferred) or MacFan-{tag}.zip in the latest release"
+        "Expected MenuGauge-" + tag + ".dmg (preferred), then a MenuGauge zip, "
+        "or the older MacFan dmg/zip name, in the latest release"
     )
 
 
@@ -100,7 +112,7 @@ def build(output, base, site_url, release_file):
         asset_versions[name] = hashlib.sha256((output / "assets" / name).read_bytes()).hexdigest()[:12]
     for destination, source in {
         "favicon.png": "website/favicon.png",
-        "app-icon.png": "Design/MacFan-UI/MacFan-AppIcon.png",
+        "app-icon.png": "Design/MacFan-UI/MenuGauge-AppIcon.png",
         "preview-light-en.png": "website/preview/preview-light-en.png",
         "preview-dark-en.png": "website/preview/preview-dark-en.png",
         "preview-settings-en.png": "website/preview/preview-settings-en.png",

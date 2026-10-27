@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "MacFan",
+    name: "MenuGauge",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "MacFan",
-            path: "Sources/MacFan",
+            name: "MenuGauge",
+            path: "Sources/MenuGauge",
             linkerSettings: [
                 .linkedFramework("IOKit"),
                 .linkedFramework("AppKit"),
                 .linkedFramework("ServiceManagement"),
             ]
         ),
-        .testTarget(name: "MacFanTests", dependencies: ["MacFan"])
+        .testTarget(name: "MenuGaugeTests", dependencies: ["MenuGauge"])
     ]
 )

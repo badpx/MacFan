@@ -1,6 +1,6 @@
 import XCTest
 import AppKit
-@testable import MacFan
+@testable import MenuGauge
 
 final class MetricPresentationTests: XCTestCase {
     func testAverageIncludesStoppedFansAndRequiresEverySensor() {
