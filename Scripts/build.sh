@@ -258,11 +258,16 @@ fi
 
 SWIFT_SCRATCH_FLAG=""
 detect_scratch_flag() {
-  local help
-  help=$(swift build --help 2>&1 || true)
-  if printf '%s\n' "$help" | grep -q -- '--scratch-path'; then
+  local help status=0
+  help=$(swift build --help 2>&1) || status=$?
+  if [[ "$status" -ne 0 ]]; then
+    die "swift build --help failed (exit $status)"
+  fi
+  # Match in the shell. A pipeline into grep -q exits 141 under pipefail
+  # when grep stops at the first hit and the producer gets SIGPIPE.
+  if [[ "$help" == *'--scratch-path'* ]]; then
     SWIFT_SCRATCH_FLAG="--scratch-path"
-  elif printf '%s\n' "$help" | grep -q -- '--build-path'; then
+  elif [[ "$help" == *'--build-path'* ]]; then
     SWIFT_SCRATCH_FLAG="--build-path"
   else
     die "swift build has neither --scratch-path nor --build-path"
@@ -298,11 +303,29 @@ compile_release() {
   UNIVERSAL_BIN=$universal
 }
 
+# 0 when the slice's nm listing contains the symbol, 1 when it does not.
+# nm itself failing is fatal: swallowing that used to look like "not
+# imported", so the App Store check would accept a binary it could not read.
 slice_imports() {
   local file="$1"
   local arch="$2"
   local symbol="$3"
-  nm -arch "$arch" "$file" 2>/dev/null | grep -F -q -- "$symbol"
+  local symbols status=0
+  symbols=$(nm -arch "$arch" "$file") || status=$?
+  if [[ "$status" -ne 0 ]]; then
+    die "nm failed for $arch slice of $file (exit $status)"
+  fi
+  # grep -c reads all of its input. grep -q in a pipeline does not: it
+  # exits at the first hit, nm dies with SIGPIPE, and pipefail turns a
+  # real import into status 141. That failed the direct-edition check
+  # and let the MAS check pass while the symbol was present.
+  local count=0
+  status=0
+  count=$(printf '%s\n' "$symbols" | grep -F -c -- "$symbol") || status=$?
+  if [[ "$status" -gt 1 ]]; then
+    die "could not scan nm output for $symbol (exit $status)"
+  fi
+  [[ "${count:-0}" -gt 0 ]]
 }
 
 # UTF-8 or UTF-16LE, so a Swift string literal cannot hide from the check.
@@ -491,9 +514,15 @@ make_dmg() {
   local dmg="$BUILD_DIR/$APP_NAME-v$MACFAN_VERSION.dmg"
   local identity="${DEVELOPER_ID_APPLICATION:-}"
   echo "==> Creating $dmg"
-  if hdiutil info | grep -F -q '/Volumes/MacFan'; then
-    hdiutil detach "/Volumes/MacFan" || true
+  local volumes volume_status=0
+  volumes=$(hdiutil info) || volume_status=$?
+  if [[ "$volume_status" -ne 0 ]]; then
+    die "hdiutil info failed (exit $volume_status)"
   fi
+  # Same pipefail hazard as slice_imports: do not pipe this into grep -q.
+  case "$volumes" in
+    *'/Volumes/MacFan'*) hdiutil detach "/Volumes/MacFan" || true ;;
+  esac
   rm -rf "$staging"
   mkdir -p "$staging"
   cp -R "$APP_DIR" "$staging/$APP_NAME.app"
