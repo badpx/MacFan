@@ -42,7 +42,7 @@ Usage:
   Scripts/build.sh --help
 
 Flags (override the same environment variable):
-  --version VER              MACFAN_VERSION (major.minor.patch)
+  --version VER              MACFAN_VERSION (major.minor or major.minor.patch)
   --build N                  MACFAN_BUILD (integer CFBundleVersion)
   --bundle-id ID             MACFAN_BUNDLE_ID (default com.badpx.macfan)
   --developer-id NAME        DEVELOPER_ID_APPLICATION
@@ -63,7 +63,9 @@ Flags (override the same environment variable):
   --upload                   MACFAN_UPLOAD=1 (appstore only; off by default)
 
 dmg and appstore require --version and --build (or the env vars).
-The local app command defaults to 1.0.0 (1) when they are omitted.
+MenuGauge releases use two components (1.0). The GitHub tag is v1.0 and
+the asset is MenuGauge-v1.0.dmg. A three-part value such as 1.0.0 is
+still accepted. The local app command defaults to 1.0 (build 1).
 Notarization uses the API key when NOTARY_KEY_PATH, NOTARY_KEY_ID and
 NOTARY_ISSUER are all set; otherwise NOTARY_KEYCHAIN_PROFILE.
 See docs/Release.md for certificates, the profile, and App Store Connect.
@@ -239,16 +241,16 @@ if [[ ! "$BUNDLE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[.][A-Za-z0-9.-]+$ ]]; then
 fi
 
 if [[ "$COMMAND" == "app" ]]; then
-  : "${MACFAN_VERSION:=1.0.0}"
+  : "${MACFAN_VERSION:=1.0}"
   : "${MACFAN_BUILD:=1}"
 else
   if [[ -z "${MACFAN_VERSION:-}" || -z "${MACFAN_BUILD:-}" ]]; then
-    die "$COMMAND requires MACFAN_VERSION (1.2.3) and MACFAN_BUILD (integer), via env or --version/--build"
+    die "$COMMAND requires MACFAN_VERSION (1.0, or 1.0.0) and MACFAN_BUILD (integer), via env or --version/--build"
   fi
 fi
 
-if [[ ! "$MACFAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  die "MACFAN_VERSION must be major.minor.patch (got: $MACFAN_VERSION)"
+if [[ ! "$MACFAN_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+  die "MACFAN_VERSION must be major.minor or major.minor.patch (got: $MACFAN_VERSION)"
 fi
 # App Store Connect compares CFBundleVersion numerically. Leading zeros
 # would sort as a different string, so reject them except for a plain 0.

@@ -16,10 +16,10 @@
 
 `CFBundleShortVersionString` 和 `CFBundleVersion` 不在 `Resources/Info.plist` 里写死，打包时由脚本写入已组装的 Info.plist。
 
-- `MACFAN_VERSION` 或 `--version`：`1.2.3` 这种三段式。
+- `MACFAN_VERSION` 或 `--version`：MenuGauge 的发行版本用两段，例如 `1.0`。`1.0` 是这个产品的第一个发行版。GitHub Release 标签是 `v1.0`，附件名是 `MenuGauge-v1.0.dmg`。`CFBundleShortVersionString` 和文件名都按传入的字符串原样写入。脚本仍接受三段式（例如 `1.0.0`），以免已有命令失效。不要删除或改名已经发出的标签。
 - `MACFAN_BUILD` 或 `--build`：非负整数，不要前导零。App Store 每次上传都要更大。
 - `dmg` 和 `appstore` 必须显式给出这两项。
-- 本地 `Scripts/build.sh` 省略时默认为 `1.0.0`（build `1`）。
+- 本地 `Scripts/build.sh` 省略时默认为 `1.0`（build `1`）。
 
 `MACFAN_BUNDLE_ID`（`--bundle-id`）默认 `com.badpx.macfan`。描述文件、App Store Connect 记录和这里必须一致。
 
@@ -58,7 +58,7 @@ export DEVELOPER_ID_APPLICATION="Developer ID Application: 名字 (TEAMID)"
 export NOTARY_KEY_PATH="$HOME/private_keys/AuthKey_XXXXXXXXXX.p8"
 export NOTARY_KEY_ID="XXXXXXXXXX"
 export NOTARY_ISSUER="00000000-0000-0000-0000-000000000000"
-export MACFAN_VERSION="1.2.3"
+export MACFAN_VERSION="1.0"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh dmg
 ```
@@ -68,7 +68,7 @@ bash Scripts/build.sh dmg
 ```bash
 export DEVELOPER_ID_APPLICATION="Developer ID Application: 名字 (TEAMID)"
 export NOTARY_KEYCHAIN_PROFILE="MenuGauge-Notary"
-export MACFAN_VERSION="1.2.3"
+export MACFAN_VERSION="1.0"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh dmg
 ```
@@ -82,7 +82,7 @@ bash Scripts/build.sh dmg
 5. 做 UDZO 磁盘映像，卷名是 MenuGauge，卷内是 `MenuGauge.app` 和指向 `/Applications` 的替身，再用同一身份给 dmg 签名。
 6. `xcrun notarytool submit --wait`，然后 `xcrun stapler staple` 与 `stapler validate`。
 
-产物：`build/MenuGauge-v1.2.3.dmg`。GitHub Release 的标签必须是 `v1.2.3`，附件名必须是 `MenuGauge-v1.2.3.dmg`。官网优先用这个文件，其次同名 zip。更早的 Release 若仍是 `MacFan-v<版本>.dmg` 或 `.zip`，官网也会接受，避免当前线上版本把站点构建弄挂。
+产物：`build/MenuGauge-v1.0.dmg`。GitHub Release 的标签是 `v1.0`，附件名是 `MenuGauge-v1.0.dmg`。`1.0` 是 MenuGauge 的第一个发行版。官网优先用 `MenuGauge-<标签>.dmg`，其次同名 zip。已经发布的标签保持不动。若最新 Release 仍是三段式标签，或 `MacFan-v<版本>.dmg` / `.zip`，官网构建也会接受，这样在换成 `v1.0` 之前站点不会中断。`website/release.json` 仍指向那份旧快照，等决定替换后再改。
 
 装订打在 dmg 上。用户把 app 拖进「应用程序」后，Gatekeeper 用 Apple 保存的票据在线校验；离线首次打开仍建议机器曾经联网完成过公证检查。
 
@@ -129,7 +129,7 @@ export APPLE_TEAM_ID="TEAMID"
 export APPLE_DISTRIBUTION_IDENTITY="Apple Distribution: 名字 (TEAMID)"
 export MAC_INSTALLER_DISTRIBUTION_IDENTITY="Mac Installer Distribution: 名字 (TEAMID)"
 export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MenuGauge_Mac_AppStore.provisionprofile"
-export MACFAN_VERSION="1.2.3"
+export MACFAN_VERSION="1.0"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh appstore
 ```
@@ -143,7 +143,7 @@ bash Scripts/build.sh appstore
 5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`。requirements 里的最低系统版本来自 Info.plist 的 `LSMinimumSystemVersion`（13.0），架构包含 `arm64` 和 `x86_64`（避免安装器只在 Rosetta 下评估）。
 6. `pkgutil --check-signature`。
 
-产物：`build/MenuGauge-v1.2.3.pkg` 和 `build/MenuGauge-MAS.app`。本地 ad-hoc / DMG 用的是 `build/MenuGauge.app`，两条命令不会互相覆盖 app 包。
+产物：`build/MenuGauge-v1.0.pkg` 和 `build/MenuGauge-MAS.app`。本地 ad-hoc / DMG 用的是 `build/MenuGauge.app`，两条命令不会互相覆盖 app 包。
 
 ### 上传（默认关闭）
 
@@ -162,7 +162,7 @@ bash Scripts/build.sh appstore --upload
 脚本把 `.p8` 复制到临时目录并命名为 `AuthKey_<id>.p8`，通过 `API_PRIVATE_KEYS_DIR` 传给 altool，上传结束就删掉。不会把密钥内容打进日志。
 
 ```bash
-xcrun altool --upload-package MenuGauge-v1.2.3.pkg -t osx \
+xcrun altool --upload-package MenuGauge-v1.0.pkg -t osx \
   --apple-id "$ASC_APP_APPLE_ID" \
   --bundle-id "$MACFAN_BUNDLE_ID" \
   --bundle-short-version-string "$MACFAN_VERSION" \
@@ -230,10 +230,10 @@ Both artifacts come from `Scripts/build.sh`: SwiftPM compiles, then the script a
 
 `CFBundleShortVersionString` and `CFBundleVersion` are not stored in `Resources/Info.plist`. The script writes them into the assembled plist.
 
-- `MACFAN_VERSION` or `--version`: `major.minor.patch`.
+- `MACFAN_VERSION` or `--version`: MenuGauge releases use two components, for example `1.0`. `1.0` is the first release of this product. The GitHub Release tag is `v1.0` and the asset is `MenuGauge-v1.0.dmg`. `CFBundleShortVersionString` and the file name are that string as given. The script still accepts a three-part value such as `1.0.0`, so an existing command keeps working. Do not delete or rename tags that are already published.
 - `MACFAN_BUILD` or `--build`: a non-negative integer with no leading zeros. App Store Connect requires a greater build number on every upload.
 - `dmg` and `appstore` require both.
-- A plain `Scripts/build.sh` defaults to `1.0.0` (build `1`).
+- A plain `Scripts/build.sh` defaults to `1.0` (build `1`).
 
 `MACFAN_BUNDLE_ID` (`--bundle-id`) defaults to `com.badpx.macfan`. The profile, the App Store Connect record and this value must match.
 
@@ -272,7 +272,7 @@ export DEVELOPER_ID_APPLICATION="Developer ID Application: Name (TEAMID)"
 export NOTARY_KEY_PATH="$HOME/private_keys/AuthKey_XXXXXXXXXX.p8"
 export NOTARY_KEY_ID="XXXXXXXXXX"
 export NOTARY_ISSUER="00000000-0000-0000-0000-000000000000"
-export MACFAN_VERSION="1.2.3"
+export MACFAN_VERSION="1.0"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh dmg
 ```
@@ -282,7 +282,7 @@ Keychain profile only:
 ```bash
 export DEVELOPER_ID_APPLICATION="Developer ID Application: Name (TEAMID)"
 export NOTARY_KEYCHAIN_PROFILE="MenuGauge-Notary"
-export MACFAN_VERSION="1.2.3"
+export MACFAN_VERSION="1.0"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh dmg
 ```
@@ -296,7 +296,7 @@ bash Scripts/build.sh dmg
 5. Builds a UDZO disk image with volume name MenuGauge, containing `MenuGauge.app` and a symlink to `/Applications`, then signs the dmg with the same identity.
 6. `xcrun notarytool submit --wait`, then `xcrun stapler staple` and `stapler validate`.
 
-Output: `build/MenuGauge-v1.2.3.dmg`. The GitHub Release tag must be `v1.2.3` and the asset must be named `MenuGauge-v1.2.3.dmg`. The website prefers that file, then a same-named zip. It still accepts an older `MacFan-v<version>.dmg` or `.zip`, so the release that is already live does not break the site build.
+Output: `build/MenuGauge-v1.0.dmg`. The GitHub Release tag is `v1.0` and the asset is `MenuGauge-v1.0.dmg`. `1.0` is the first MenuGauge release. The website prefers `MenuGauge-<tag>.dmg`, then a zip of the same name. Tags already published stay as they are. If the latest release is still a three-part tag, or a `MacFan-v<version>.dmg` / `.zip`, the site build accepts that too, so the site keeps building until it is replaced by `v1.0`. `website/release.json` still points at that older snapshot until it is replaced.
 
 The staple is on the dmg. After the app is copied to Applications, Gatekeeper checks Apple's online ticket. The first offline launch still wants a machine that has been online for that check.
 
@@ -343,7 +343,7 @@ export APPLE_TEAM_ID="TEAMID"
 export APPLE_DISTRIBUTION_IDENTITY="Apple Distribution: Name (TEAMID)"
 export MAC_INSTALLER_DISTRIBUTION_IDENTITY="Mac Installer Distribution: Name (TEAMID)"
 export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MenuGauge_Mac_AppStore.provisionprofile"
-export MACFAN_VERSION="1.2.3"
+export MACFAN_VERSION="1.0"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh appstore
 ```
@@ -357,7 +357,7 @@ bash Scripts/build.sh appstore
 5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`. The requirements plist takes the minimum OS from `LSMinimumSystemVersion` (13.0) and lists `arm64` and `x86_64`, so the installer is not evaluated only under Rosetta.
 6. `pkgutil --check-signature`.
 
-Output: `build/MenuGauge-v1.2.3.pkg` and `build/MenuGauge-MAS.app`. The local and DMG commands use `build/MenuGauge.app`, so the two editions do not overwrite each other's bundle.
+Output: `build/MenuGauge-v1.0.pkg` and `build/MenuGauge-MAS.app`. The local and DMG commands use `build/MenuGauge.app`, so the two editions do not overwrite each other's bundle.
 
 ### Upload (off by default)
 
@@ -376,7 +376,7 @@ bash Scripts/build.sh appstore --upload
 The script copies the `.p8` into a temporary directory as `AuthKey_<id>.p8`, points altool at it with `API_PRIVATE_KEYS_DIR`, and deletes the copy when the upload finishes. The key bytes are not printed.
 
 ```bash
-xcrun altool --upload-package MenuGauge-v1.2.3.pkg -t osx \
+xcrun altool --upload-package MenuGauge-v1.0.pkg -t osx \
   --apple-id "$ASC_APP_APPLE_ID" \
   --bundle-id "$MACFAN_BUNDLE_ID" \
   --bundle-short-version-string "$MACFAN_VERSION" \
