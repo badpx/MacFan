@@ -402,7 +402,7 @@ assemble_app() {
   xcrun actool Resources/MacFanFlat.icon \
     --compile "$dest/Contents/Resources" \
     --app-icon MacFanFlat --platform macosx --target-device mac \
-    --minimum-deployment-target 13.0 --development-region zh_CN \
+    --minimum-deployment-target 13.0 --development-region en \
     --enable-on-demand-resources NO \
     --enable-icon-stack-fallback-generation=disabled \
     --include-all-app-icons \
