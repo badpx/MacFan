@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf9f5">
+  <script>
+    document.documentElement.dataset.policy =
+      new URLSearchParams(location.search).get("lang") === "zh-Hans" ? "zh" : "en";
+    if (document.documentElement.dataset.policy === "zh") {
+      document.documentElement.lang = "zh-Hans";
+      document.title = "隐私政策 — MenuGauge";
+    }
+  </script>
+  <title>Privacy policy — MenuGauge</title>
+  <meta name="description" content="MenuGauge privacy policy. The app does not collect or transmit data.">
+  <link rel="canonical" href="{{ _canonical }}">
+  <link rel="alternate" hreflang="en" href="{{ _canonical }}">
+  <link rel="alternate" hreflang="zh-Hans" href="{{ _canonical_zh }}">
+  <link rel="alternate" hreflang="x-default" href="{{ _canonical }}">
+  <link rel="icon" type="image/png" href="{{ _base }}/assets/favicon.png">
+  <link rel="stylesheet" href="{{ _base }}/assets/style.css?v={{ _style_version }}">
+  <script src="{{ _base }}/assets/site.js?v={{ _script_version }}" defer></script>
+</head>
+<body>
+  <a class="skip-link only-en" href="#main">{{ en.Website.skip }}</a>
+  <a class="skip-link only-zh" href="#main">{{ zh.Website.skip }}</a>
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+    <symbol id="github" viewBox="0 0 24 24"><path d="M9 20c-5 1-5-2-7-2m14 4v-4a3.5 3.5 0 0 0-1-2.5c3.3-.4 6.7-1.6 6.7-7.4A5.7 5.7 0 0 0 20.2 4a5.3 5.3 0 0 0-.1-4s-1.2-.4-4.1 1.5a14.3 14.3 0 0 0-7.4 0C5.7-.4 4.5 0 4.5 0a5.3 5.3 0 0 0-.1 4A5.7 5.7 0 0 0 3 8.1c0 5.8 3.4 7 6.7 7.4A3.5 3.5 0 0 0 8.7 18v4" transform="translate(2 3) scale(.8)"/></symbol>
+  </defs></svg>
+
+  <header class="site-header wrap">
+    <a class="brand only-en" href="{{ _home_en }}" aria-label="MenuGauge">
+      <span class="app-icon"><img src="{{ _base }}/assets/app-icon.png" width="40" height="40" alt=""></span>
+      <span>MenuGauge<span class="brand-period">.</span></span>
+    </a>
+    <a class="brand only-zh" href="{{ _home_zh }}" aria-label="MenuGauge">
+      <span class="app-icon"><img src="{{ _base }}/assets/app-icon.png" width="40" height="40" alt=""></span>
+      <span>MenuGauge<span class="brand-period">.</span></span>
+    </a>
+    <nav class="main-nav" data-label-en="{{ en.Website.navigation }}" data-label-zh="{{ zh.Website.navigation }}" aria-label="{{ en.Website.navigation }}">
+      <a class="only-en" href="{{ _home_en }}#features">{{ en.Website.features }}</a>
+      <a class="only-zh" href="{{ _home_zh }}#features">{{ zh.Website.features }}</a>
+      <a class="only-en" href="{{ _home_en }}#how-it-works">{{ en.Website.how }}</a>
+      <a class="only-zh" href="{{ _home_zh }}#how-it-works">{{ zh.Website.how }}</a>
+      <a class="github-link" href="https://github.com/badpx/MacFan"><svg><use href="#github"/></svg><span>GitHub</span></a>
+    </nav>
+    <label class="language-picker"><svg aria-hidden="true"><use href="#globe"/></svg><span class="sr-only only-en">{{ en.Website.language }}</span><span class="sr-only only-zh">{{ zh.Website.language }}</span><select id="language">{{ _languages }}</select></label>
+  </header>
+
+  <main id="main">
+    <article class="privacy-page wrap only-en">
+      <p class="eyebrow">MenuGauge</p>
+      <h1>Privacy policy</h1>
+      <p class="effective">Effective October 27, 2026</p>
+      <p>MenuGauge is a menu-bar monitor for macOS. This policy covers both editions: the direct download from this website, and the Mac App Store edition. Both are named MenuGauge.</p>
+      <h2>What it reads</h2>
+      <p>MenuGauge reads system statistics on your Mac and shows them in the menu bar and in its panel. That includes CPU and GPU use, memory, disk space, and network speed. Network speed is calculated on the Mac from the byte counters of local network interfaces. Those counters are not sent anywhere.</p>
+      <p>The direct edition also reads fan speed and CPU temperature on the Mac. The App Store edition does not offer a fan reading. Its temperature figure is the system thermal state. The menu-bar gauge uses that same thermal state.</p>
+      <h2>What it does not do</h2>
+      <p>MenuGauge does not collect or transmit data. There is no account, no advertising, no analytics, and no third-party SDKs. The app does not contact this website. It does not download <code>release.json</code>, and it does not check for updates.</p>
+      <h2>Settings</h2>
+      <p>The menu-bar readings you turn on are stored only on this Mac, in the app’s UserDefaults. Launch at login uses the system login item. Those settings are not sent anywhere.</p>
+      <h2>The two editions</h2>
+      <p>The direct edition is not sandboxed. Its code still does not open a network connection. The Mac App Store edition is sandboxed. Its entitlements do not include a network client, so the system does not allow that edition to open network connections.</p>
+      <h2>This website</h2>
+      <p>This site is static. It does not run analytics. Choosing another language opens another page here. <code>release.json</code> is used only while the site is built, to find the current download. The app never requests it. Pages other than Simplified Chinese show this English policy.</p>
+      <h2>Contact</h2>
+      <p>Questions and requests go to <a href="{{ _issues }}">GitHub issues</a>.</p>
+    </article>
+
+    <article class="privacy-page wrap only-zh">
+      <p class="eyebrow">MenuGauge</p>
+      <h1>隐私政策</h1>
+      <p class="effective">生效日期：2026年10月27日</p>
+      <p>MenuGauge 是 macOS 菜单栏监控工具。本政策适用于两个版本：从本网站下载的直接分发版，以及 Mac App Store 版。两者的名称都是 MenuGauge。</p>
+      <h2>它读取什么</h2>
+      <p>MenuGauge 在你的 Mac 上读取系统统计，并显示在菜单栏和面板里。其中包括 CPU 与 GPU 占用、内存、磁盘空间和网速。网速是在本机根据本地网络接口的字节计数计算的，这些计数不会被发送出去。</p>
+      <p>直接分发版还会在本机读取风扇转速和 CPU 温度。App Store 版不提供风扇项，温度显示的是系统热状态。菜单栏里的仪表使用同一个热状态。</p>
+      <h2>它不做什么</h2>
+      <p>MenuGauge 不收集、也不传输数据。没有账户，没有广告，没有分析统计，也没有第三方 SDK。应用不会联系本网站，不会下载 <code>release.json</code>，也不会检查更新。</p>
+      <h2>设置</h2>
+      <p>你在菜单栏开启的指标只保存在这台 Mac 上，写在应用自己的 UserDefaults 里。开机自启动使用系统登录项。这些设置不会被发送到别处。</p>
+      <h2>两个版本</h2>
+      <p>直接分发版没有沙盒。它的代码仍然不会发起网络连接。Mac App Store 版在沙盒中运行，其授权不包含网络客户端，因此系统不允许这个版本打开网络连接。</p>
+      <h2>本网站</h2>
+      <p>本网站是静态页面，没有分析统计。切换语言只会打开本站的另一个页面。<code>release.json</code> 只在构建网站时用来找到当前的下载文件，应用从来不会请求它。除简体中文外，其他语言的页面显示这份英文政策。</p>
+      <h2>联系</h2>
+      <p>问题和请求请提交到 <a href="{{ _issues }}">GitHub issues</a>。</p>
+    </article>
+  </main>
+
+  <footer class="site-footer wrap">
+    <a class="footer-brand only-en" href="{{ _home_en }}">MenuGauge<span>.</span></a>
+    <a class="footer-brand only-zh" href="{{ _home_zh }}">MenuGauge<span>.</span></a>
+    <p class="only-en">{{ en.Website.footer }}</p>
+    <p class="only-zh">{{ zh.Website.footer }}</p>
+    <div>
+      <a href="{{ _canonical }}" aria-current="page"><span class="only-en">{{ en.Website.privacy }}</span><span class="only-zh">{{ zh.Website.privacy }}</span></a>
+      <a href="{{ _issues }}"><span class="only-en">{{ en.Website.feedback }}</span><span class="only-zh">{{ zh.Website.feedback }}</span></a>
+      <a href="https://github.com/badpx/MacFan">GitHub</a>
+    </div>
+  </footer>
+  <script>
+    (function () {
+      var nav = document.querySelector(".main-nav");
+      if (!nav) return;
+      var zh = document.documentElement.dataset.policy === "zh";
+      nav.setAttribute("aria-label", zh ? nav.dataset.labelZh : nav.dataset.labelEn);
+    })();
+  </script>
+</body>
+</html>

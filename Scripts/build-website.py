@@ -73,6 +73,48 @@ def release_download(release, tag):
     )
 
 
+def privacy_href(base, language):
+    if language == "en":
+        return f"{base}/privacy.html"
+    return f"{base}/privacy.html?lang={language}"
+
+
+def render_privacy(base, site_url, asset_versions, catalogs):
+    """One privacy.html. zh-Hans shows Chinese; every other locale shows English."""
+    template = (ROOT / "website/privacy.html").read_text()
+    replacements = {
+        "_base": base,
+        "_canonical": site_url + "/privacy.html",
+        "_canonical_zh": site_url + "/privacy.html?lang=zh-Hans",
+        "_home_en": base + "/",
+        "_home_zh": base + "/zh-Hans/",
+        "_style_version": asset_versions["style.css"],
+        "_script_version": asset_versions["site.js"],
+        "_issues": "https://github.com/badpx/MacFan/issues",
+    }
+    for prefix, language in (("en", "en"), ("zh", "zh-Hans")):
+        for key, value in catalogs[language].items():
+            replacements[f"{prefix}.{key}"] = value
+    raw = {
+        "_languages": "".join(
+            f'<option value="{html.escape(privacy_href(base, code), quote=True)}"'
+            f'{" selected" if code == "en" else ""}>{label}</option>'
+            for code, label in LANGUAGES.items()
+        ),
+    }
+
+    def replace(match, replacements=replacements, raw=raw):
+        key = match.group(1)
+        if key not in raw and key not in replacements:
+            raise ValueError(f"Missing privacy template value: {key}")
+        return raw[key] if key in raw else html.escape(str(replacements[key]), quote=True)
+
+    page = TOKEN.sub(replace, template)
+    if "{{" in page or "}}" in page:
+        raise ValueError("Unreplaced template token in privacy.html")
+    return page
+
+
 def build(output, base, site_url, release_file):
     if base and (not base.startswith("/") or base.endswith("/") or ".." in base):
         raise ValueError("Base must be empty or an absolute path without a trailing slash")
@@ -82,7 +124,10 @@ def build(output, base, site_url, release_file):
     if release.get("draft") or release.get("prerelease"):
         raise ValueError("The website must link to a public stable release")
     tag = release.get("tag_name", "")
-    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+    # New MenuGauge tags are vX.Y (v1.0 is the first). Older three-part
+    # tags, including the MacFan release still named in website/release.json,
+    # stay valid so the site can build before that snapshot is replaced.
+    if not re.fullmatch(r"v\d+\.\d+(?:\.\d+)?", tag):
         raise ValueError("Unexpected release tag")
     download = release_download(release, tag)
     if release["html_url"] != f"https://github.com/badpx/MacFan/releases/tag/{tag}":
@@ -139,6 +184,7 @@ def build(output, base, site_url, release_file):
             "_download": download,
             "_release": release["html_url"],
             "_version": tag,
+            "_privacy_href": privacy_href(base, language),
             "_preview_language": language if language in ("zh-Hans", "zh-Hant") else "en",
             "_style_version": asset_versions["style.css"],
             "_script_version": asset_versions["site.js"],
@@ -166,7 +212,11 @@ def build(output, base, site_url, release_file):
         destination = output if language == "en" else output / language
         destination.mkdir(exist_ok=True)
         (destination / "index.html").write_text(page)
+    privacy = render_privacy(base, site_url, asset_versions, catalogs)
+    (output / "privacy.html").write_text(privacy)
     urls = "".join(f"<url><loc>{html.escape(site_url + suffix(code))}</loc></url>" for code in LANGUAGES)
+    urls += f"<url><loc>{html.escape(site_url + '/privacy.html')}</loc></url>"
+    urls += f"<url><loc>{html.escape(site_url + '/privacy.html?lang=zh-Hans')}</loc></url>"
     (output / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n'

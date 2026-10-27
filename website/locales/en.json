@@ -55,5 +55,6 @@
   "Website.closingTitle": "Keep an eye on it from the menu bar.",
   "Website.footer": "A native macOS menu bar monitor. No third-party dependencies.",
   "Website.release": "Release",
-  "Website.feedback": "Feedback"
+  "Website.feedback": "Feedback",
+  "Website.privacy": "Privacy"
 }

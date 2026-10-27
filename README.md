@@ -28,7 +28,7 @@ macOS 菜单栏系统监控小工具：查看 CPU / GPU 占用率、系统温度
 bash Scripts/build.sh
 ```
 
-产出 `build/MenuGauge.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。版本号和构建号由脚本写入，未指定时为 `1.0.0`（build `1`）。
+产出 `build/MenuGauge.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。版本号和构建号由脚本写入，未指定时为 `1.0`（build `1`）。MenuGauge 的第一个发行版是 `1.0`，对应 GitHub 标签 `v1.0` 和附件 `MenuGauge-v1.0.dmg`。已经发出的标签不要删除或改名。
 
 这条本地包仍是 ad-hoc 签名。发给别人用的公证 DMG，以及 Mac App Store 的沙盒 pkg，见 [docs/Release.md](docs/Release.md)（中英）。ad-hoc 包通过浏览器或隔空投送下载后，首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MenuGauge.app`）；U 盘等本地拷贝无此提示。
 
