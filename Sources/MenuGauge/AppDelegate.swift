@@ -142,16 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var timer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
-    /// Ordered metrics; add new providers here.
-    private let providers: [MetricProvider] = [
-        CPUMonitor(),
-        GPUMonitor(),
-        MemoryMonitor(),
-        DiskMonitor(),
-        TemperatureMonitor(),
-        FanMonitor(),
-        NetworkMonitor(),
-    ]
+    /// Ordered metrics. The App Store edition omits the fan provider.
+    private let providers: [MetricProvider] = MetricCatalog.makeProviders(appStore: AppEdition.isAppStore)
     /// Latest reading per provider id, refreshed every timer tick.
     private var readings: [String: MetricReading] = [:]
 
@@ -172,11 +164,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var lastProbeAttempt = Date.distantPast
     private let selectionKey = "menuBarMetrics"
     private var selectedIDs: [String] {
-        get { UserDefaults.standard.stringArray(forKey: selectionKey) ?? [] }
+        get {
+            let saved = UserDefaults.standard.stringArray(forKey: selectionKey) ?? []
+            return MetricCatalog.sanitizedSelection(saved, appStore: AppEdition.isAppStore)
+        }
         set { UserDefaults.standard.set(newValue, forKey: selectionKey) }
     }
 
+    /// Drops a fan id left behind by the direct edition so the settings
+    /// count and the overflow logic do not reserve a row this build cannot show.
+    private func sanitizeStoredSelection() {
+        let saved = UserDefaults.standard.stringArray(forKey: selectionKey) ?? []
+        let cleaned = MetricCatalog.sanitizedSelection(saved, appStore: AppEdition.isAppStore)
+        if cleaned != saved {
+            UserDefaults.standard.set(cleaned, forKey: selectionKey)
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        sanitizeStoredSelection()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         popover.behavior = .transient

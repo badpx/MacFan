@@ -74,7 +74,7 @@ final class TemperatureMonitorTests: XCTestCase {
         XCTAssertEqual(ThermalLevel.serious.heat, 0.7)
         XCTAssertEqual(ThermalLevel.critical.heat, 1)
         XCTAssertEqual(ThermalLevel.nominal.compactToken, "OK")
-        XCTAssertEqual(ThermalLevel.fair.compactToken, "WARM")
+        XCTAssertEqual(ThermalLevel.fair.compactToken, "MID")
         XCTAssertEqual(ThermalLevel.serious.compactToken, "HOT")
         XCTAssertEqual(ThermalLevel.critical.compactToken, "MAX")
     }

@@ -32,7 +32,7 @@ bash Scripts/build.sh
 
 这条本地包仍是 ad-hoc 签名。发给别人用的公证 DMG，以及 Mac App Store 的沙盒 pkg，见 [docs/Release.md](docs/Release.md)（中英）。ad-hoc 包通过浏览器或隔空投送下载后，首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MenuGauge.app`）；U 盘等本地拷贝无此提示。
 
-App Store 版在编译期去掉 AppleSMC（风扇转速与 CPU 温度），改为显示系统热状态。直接分发的 DMG 仍读取 SMC，行为与现在一致。
+App Store 版在编译期去掉 AppleSMC。CPU 温度改为系统热状态，面板、菜单栏和设置里都没有风扇项；若本机以前存过 `menuBarMetrics` 里的 `fan`，启动时会去掉。直接分发的 DMG 仍读取 SMC 风扇转速和 CPU 温度。
 
 ## 安装
 

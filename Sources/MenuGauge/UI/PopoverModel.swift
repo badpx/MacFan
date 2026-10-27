@@ -17,6 +17,62 @@ struct MetricDescriptor: Identifiable {
         .init(id: "fan", title: L10n.tr(.fan), symbol: "fan"),
         .init(id: "network", title: L10n.tr(.network), symbol: "arrow.up.arrow.down"),
     ] }
+
+    /// Settings rows for this edition. The App Store build has no fan choice.
+    static var offered: [MetricDescriptor] {
+        MetricCatalog.offeredDescriptors(appStore: AppEdition.isAppStore)
+    }
+}
+
+/// Which binary is running. Tests pass an explicit flag into `MetricCatalog`
+/// so both editions stay covered without a second test build.
+enum AppEdition {
+    static var isAppStore: Bool {
+        #if MAS
+        true
+        #else
+        false
+        #endif
+    }
+}
+
+/// The metrics both editions can sample, in menu-bar order. The direct
+/// edition inserts the SMC fan provider; the App Store edition leaves it out.
+enum MetricCatalog {
+    static let fanID = "fan"
+
+    static func makeProviders(appStore: Bool) -> [MetricProvider] {
+        var providers: [MetricProvider] = [
+            CPUMonitor(),
+            GPUMonitor(),
+            MemoryMonitor(),
+            DiskMonitor(),
+            TemperatureMonitor(),
+        ]
+        #if !MAS
+        if !appStore {
+            providers.append(FanMonitor())
+        }
+        #else
+        // The parameter selects the edition in the direct build. This
+        // binary has no fan provider to append.
+        _ = appStore
+        #endif
+        providers.append(NetworkMonitor())
+        return providers
+    }
+
+    static func offeredDescriptors(appStore: Bool) -> [MetricDescriptor] {
+        guard appStore else { return MetricDescriptor.all }
+        return MetricDescriptor.all.filter { $0.id != fanID }
+    }
+
+    /// A saved fan choice from the direct edition must not count in the
+    /// App Store build. Other ids, and their order, stay as stored.
+    static func sanitizedSelection(_ saved: [String], appStore: Bool) -> [String] {
+        guard appStore else { return saved }
+        return saved.filter { $0 != fanID }
+    }
 }
 
 /// Updated only while the popover is open. Menu-bar drawing remains independent.

@@ -90,11 +90,11 @@ bash Scripts/build.sh dmg
 
 沙盒会拒绝 AppleSMC 用户客户端。`com.apple.security.temporary-exception.iokit-user-client-class` 是已知的审核拒绝项，所以 **App Store 版在编译期去掉 SMC**，不申请这个例外。
 
-`swift build` 额外传入 `-Xswiftc -DMAS`。`SMC.swift` 整份在 `#if !MAS` 里。风扇和 CPU 温度改为 `ProcessInfo.thermalState`：
+`swift build` 额外传入 `-Xswiftc -DMAS`。`SMC.swift` 整份在 `#if !MAS` 里。CPU 温度改为 `ProcessInfo.thermalState`。风扇指标不进入这个版本：
 
-- 弹出面板的大号温度位显示本地化的热状态（正常 / 一般 / 严重 / 危急，以及其余语言），标题改为「热状态」，不再显示 °C。
-- 风扇一行显示同一个热状态，不显示 RPM。
-- 菜单栏用固定短词 `OK` / `WARM` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`，风扇在下标 `FAN`。
+- 弹出面板的大号温度位显示本地化的热状态（正常 / 偏高 / 过热 / 危急，以及其余语言），标题改为「热状态」，不再显示 °C。
+- 概览没有风扇一行，设置里也没有风扇开关。已保存的 `menuBarMetrics` 若包含 `fan`，启动时去掉，避免计数和降级逻辑把它算进去。
+- 菜单栏用固定短词 `OK` / `MID` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`。
 - `MenuGauge --fandump` 在这个二进制里直接退出。
 
 CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccelerator` 的公开注册表属性，不 `IOServiceOpen`。沙盒里如果读不到，界面本来就会显示 `--`，不要为此加临时例外。
@@ -203,7 +203,7 @@ xcrun altool --upload-package MenuGauge-v1.2.3.pkg -t osx \
 3. `bash Scripts/build.sh dmg`（用上面的身份和公证变量）。`codesign -dv --verbose=4 build/MenuGauge.app` 应显示 Developer ID、runtime、timestamp。公证和 `stapler validate` 由脚本执行，失败即非零退出。打开 dmg，把 app 拖进「应用程序」，Gatekeeper 不应再要求右键打开。SMC 读数应与 ad-hoc 包一致。
 4. `bash Scripts/build.sh appstore`（用描述文件和两个 Distribution 身份）。确认：
    - `codesign -d --entitlements :- build/MenuGauge-MAS.app` 含沙盒，且 application-identifier / team id 与描述文件一致。
-   - 弹出面板温度是热状态而不是 °C，风扇一行也是热状态而不是 RPM。
+   - 弹出面板温度是热状态而不是 °C，没有风扇一行，设置里也没有风扇开关。
    - CPU、内存、磁盘、网速仍有数。GPU 若变成 `--`，那是沙盒挡住了注册表，保持这样，不要加 IOKit 例外。
    - 开机自启动在沙盒里仍能注册，或把系统返回的错误显示出来。
    - `pkgutil --check-signature` 的签名身份是 Mac Installer Distribution。
@@ -304,11 +304,11 @@ The staple is on the dmg. After the app is copied to Applications, Gatekeeper ch
 
 The sandbox refuses the AppleSMC user client. An `iokit-user-client-class` temporary exception is a known review rejection, so the **App Store edition omits SMC at compile time** and does not request that exception.
 
-`swift build` passes `-Xswiftc -DMAS`. All of `SMC.swift` is inside `#if !MAS`. Fan speed and CPU temperature become `ProcessInfo.thermalState`:
+`swift build` passes `-Xswiftc -DMAS`. All of `SMC.swift` is inside `#if !MAS`. CPU temperature becomes `ProcessInfo.thermalState`. The fan metric is absent from this edition:
 
-- The large temperature figure shows the localized thermal state, captioned as thermal state, not °C.
-- The fan row shows that same state, not an RPM.
-- The menu bar uses the fixed tokens `OK` / `WARM` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`, fan is labeled `FAN`.
+- The large temperature figure shows the localized thermal state, captioned as thermal state, not °C. Simplified Chinese uses 正常 / 偏高 / 过热 / 危急.
+- There is no fan row in the overview and no fan switch in Settings. A saved `menuBarMetrics` entry of `fan` is removed at launch so the count and overflow logic do not reserve it.
+- The menu bar uses the fixed tokens `OK` / `MID` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`.
 - `MenuGauge --fandump` exits immediately in this binary.
 
 CPU, GPU, memory, disk and network sampling are unchanged. GPU reads public `IOAccelerator` registry properties and does not call `IOServiceOpen`. If the sandbox hides that dictionary, the UI already shows `--`. Do not add a temporary exception to force it.
@@ -417,7 +417,7 @@ This change was written on Linux, so the Swift toolchain did not run. Before rel
 3. `bash Scripts/build.sh dmg` with the identity and notarization variables above. `codesign -dv --verbose=4 build/MenuGauge.app` should show Developer ID, the hardened runtime and a timestamp. Notarization and `stapler validate` run inside the script and fail the build on error. Open the dmg, drag the app to Applications, and confirm Gatekeeper does not ask for a right-click Open. SMC readings should match the ad-hoc app.
 4. `bash Scripts/build.sh appstore` with the profile and both distribution identities. Confirm:
    - `codesign -d --entitlements :- build/MenuGauge-MAS.app` contains the sandbox, and the application identifier and team id match the profile.
-   - The temperature figure is a thermal state, not °C, and the fan row is that same state, not an RPM.
+   - The temperature figure is a thermal state, not °C. There is no fan row and no fan switch in Settings.
    - CPU, memory, disk and network still produce numbers. If GPU becomes `--`, the sandbox hid the registry entry; leave it that way and do not add an IOKit exception.
    - Launch at login still registers inside the sandbox, or the panel shows the error the system returned.
    - `pkgutil --check-signature` reports the Mac Installer Distribution identity.

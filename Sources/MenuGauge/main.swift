@@ -40,11 +40,7 @@ if CommandLine.arguments.contains("--fandump") {
 // Smoke-test mode for CLI verification of the sensor plumbing:
 //   MenuGauge --smoke
 if CommandLine.arguments.contains("--smoke") {
-    // Keep in sync with AppDelegate.providers.
-    let providers: [MetricProvider] = [
-        CPUMonitor(), GPUMonitor(), MemoryMonitor(), DiskMonitor(),
-        TemperatureMonitor(), FanMonitor(), NetworkMonitor(),
-    ]
+    let providers = MetricCatalog.makeProviders(appStore: AppEdition.isAppStore)
     _ = providers.map { $0.sample() } // warm up (CPU/network need two samples)
     Thread.sleep(forTimeInterval: 1.0)
     for provider in providers {

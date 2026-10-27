@@ -59,6 +59,10 @@ enum L10n {
     }
 
     static func tr(_ key: Key) -> String {
+        string(key, language: language)
+    }
+
+    static func string(_ key: Key, language: String) -> String {
         table[language]?[key] ?? table["en"]![key]!
     }
 
@@ -102,8 +106,8 @@ enum L10n {
             .gaugeStatus: "MenuGauge，CPU %d%%，%@",
             .gaugeStatusPending: "MenuGauge，%@",
             .thermalState: "热状态",
-            .thermalNominal: "正常", .thermalFair: "一般",
-            .thermalSerious: "严重", .thermalCritical: "危急",
+            .thermalNominal: "正常", .thermalFair: "偏高",
+            .thermalSerious: "过热", .thermalCritical: "危急",
         ],
         "zh-Hant": [
             .memory: "記憶體", .disk: "磁碟", .temperature: "溫度",
@@ -114,8 +118,8 @@ enum L10n {
             .gaugeStatus: "MenuGauge，CPU %d%%，%@",
             .gaugeStatusPending: "MenuGauge，%@",
             .thermalState: "熱狀態",
-            .thermalNominal: "正常", .thermalFair: "一般",
-            .thermalSerious: "嚴重", .thermalCritical: "危急",
+            .thermalNominal: "正常", .thermalFair: "偏高",
+            .thermalSerious: "過熱", .thermalCritical: "危急",
         ],
         "ja": [
             .memory: "メモリ", .disk: "ディスク", .temperature: "温度",

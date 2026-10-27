@@ -50,7 +50,7 @@ enum ThermalLevel: Equatable {
     var compactToken: String {
         switch self {
         case .nominal: return "OK"
-        case .fair: return "WARM"
+        case .fair: return "MID"
         case .serious: return "HOT"
         case .critical: return "MAX"
         }
