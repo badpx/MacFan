@@ -112,7 +112,7 @@ CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccele
 
 2. Team ID，10 位，`APPLE_TEAM_ID` 或 `--team-id`。
 3. App Store Connect 里已有的 macOS App「MenuGauge」（App ID `6827516123`，SKU `menu_gauge`，主语言 English (U.S.)）。bundle id 与 `MACFAN_BUNDLE_ID` 一致，不要新建另一条记录。App ID 打开 App Sandbox，不要打开 IOKit user client。
-4. 对应的 Mac App Store **Distribution** 描述文件。脚本会解码它，核对 `com.apple.application-identifier` 等于 `TEAMID.bundleid`、team id 一致、沙盒为 true，并拒绝带 `iokit-user-client-class` 的描述文件。
+4. 对应的 Mac App Store **Distribution** 描述文件。脚本会解码它，核对 `com.apple.application-identifier` 等于 `TEAMID.bundleid`（Apple 的格式：Team ID、一个点、bundle id）、team id 一致，并拒绝带 `iokit-user-client-class` 的描述文件。发行描述文件的 Entitlements 不含沙盒是正常的。沙盒必须在 `Resources/MacFan-MAS.entitlements` 里为 true，签名后再用 `codesign -d --entitlements :-` 确认。
 
 签名用的 entitlements 只有这三项（`Resources/MacFan-MAS.entitlements`，Team ID 和 bundle id 由脚本填入）：
 
@@ -139,7 +139,7 @@ bash Scripts/build.sh appstore
 1. 在 `build/spm-mas` 里以 `-DMAS` 编译两个架构并 `lipo`。两个切片都不得引用 `_IOServiceOpen`，二进制里不得有 `AppleSMC` 或 `IOHIDEventSystemClientCreate`。
 2. 组装 `build/MenuGauge-MAS.app`（图标与隐私清单和 DMG 版相同），写入版本号。
 3. 把描述文件放到 `Contents/embedded.provisionprofile`，再签名。签名在拷贝描述文件之后，这样签名覆盖它。
-4. `codesign --options runtime --timestamp --generate-entitlement-der`，身份是 Apple Distribution。然后 `codesign --verify --strict`，并确认签名里的沙盒 entitlement 为 true。
+4. `codesign --options runtime --timestamp --generate-entitlement-der`，身份是 Apple Distribution。签名前确认 entitlements 里沙盒为 true。然后 `codesign --verify --strict`，并用 `codesign -d --entitlements :-` 确认签进 app 的沙盒为 true。
 5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`。requirements 里的最低系统版本来自 Info.plist 的 `LSMinimumSystemVersion`（13.0），架构包含 `arm64` 和 `x86_64`（避免安装器只在 Rosetta 下评估）。
 6. `pkgutil --check-signature`。
 
@@ -326,7 +326,7 @@ Unused `Sources/MenuGauge/System/HIDSensors.swift` is deleted. It resolved priva
 
 2. The 10-character Team ID, `APPLE_TEAM_ID` or `--team-id`.
 3. The existing macOS app in App Store Connect named MenuGauge (App ID `6827516123`, SKU `menu_gauge`, primary language English (U.S.)). Its bundle id is `MACFAN_BUNDLE_ID`. Do not create a second record. Enable App Sandbox on the App ID. Do not enable an IOKit user client.
-4. The matching Mac App Store **distribution** provisioning profile. The script decodes it and requires `com.apple.application-identifier` to equal `TEAMID.bundleid`, a matching team id, sandbox `true`, and no `iokit-user-client-class` entry.
+4. The matching Mac App Store **distribution** provisioning profile. The script decodes it and requires `com.apple.application-identifier` to equal `TEAMID.bundleid` (Apple's form: Team ID, a dot, then the bundle id), a matching team id, and no `iokit-user-client-class` entry. A distribution profile's Entitlements omit the sandbox. Sandbox must be true in `Resources/MacFan-MAS.entitlements`, and the script checks the signed app with `codesign -d --entitlements :-`.
 
 The signed entitlements are only these three (`Resources/MacFan-MAS.entitlements`; the script fills in the Team ID and bundle id):
 
@@ -353,7 +353,7 @@ bash Scripts/build.sh appstore
 1. Compiles both architectures with `-DMAS` into `build/spm-mas` and runs `lipo`. Neither slice may reference `_IOServiceOpen`, and the binary must not contain `AppleSMC` or `IOHIDEventSystemClientCreate`.
 2. Assembles `build/MenuGauge-MAS.app` (same icon and privacy manifest as the DMG) and writes the version.
 3. Copies the profile to `Contents/embedded.provisionprofile`, then signs. The profile is inside the bundle before signing so the signature covers it.
-4. `codesign --options runtime --timestamp --generate-entitlement-der` with the Apple Distribution identity, then `codesign --verify --strict`, and checks that the signed sandbox entitlement is true.
+4. `codesign --options runtime --timestamp --generate-entitlement-der` with the Apple Distribution identity. The entitlements passed to codesign must already have sandbox true. Then `codesign --verify --strict`, and `codesign -d --entitlements :-` must show sandbox true on the signed app.
 5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`. The requirements plist takes the minimum OS from `LSMinimumSystemVersion` (13.0) and lists `arm64` and `x86_64`, so the installer is not evaluated only under Rosetta.
 6. `pkgutil --check-signature`.
 
