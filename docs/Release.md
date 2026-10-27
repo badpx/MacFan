@@ -94,7 +94,7 @@ bash Scripts/build.sh dmg
 
 - 弹出面板的大号温度位显示本地化的热状态（正常 / 偏高 / 过热 / 危急，以及其余语言），标题改为「热状态」，不再显示 °C。
 - 概览没有风扇一行，设置里也没有风扇开关。已保存的 `menuBarMetrics` 若包含 `fan`，启动时去掉，避免计数和降级逻辑把它算进去。
-- 菜单栏用固定短词 `OK` / `WARM` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`。
+- 菜单栏用固定短词 `OK` / `MID` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`。
 - `MenuGauge --fandump` 在这个二进制里直接退出。
 
 CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccelerator` 的公开注册表属性，不 `IOServiceOpen`。沙盒里如果读不到，界面本来就会显示 `--`，不要为此加临时例外。
@@ -308,7 +308,7 @@ The sandbox refuses the AppleSMC user client. An `iokit-user-client-class` tempo
 
 - The large temperature figure shows the localized thermal state, captioned as thermal state, not °C. Simplified Chinese uses 正常 / 偏高 / 过热 / 危急.
 - There is no fan row in the overview and no fan switch in Settings. A saved `menuBarMetrics` entry of `fan` is removed at launch so the count and overflow logic do not reserve it.
-- The menu bar uses the fixed tokens `OK` / `WARM` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`.
+- The menu bar uses the fixed tokens `OK` / `MID` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`.
 - `MenuGauge --fandump` exits immediately in this binary.
 
 CPU, GPU, memory, disk and network sampling are unchanged. GPU reads public `IOAccelerator` registry properties and does not call `IOServiceOpen`. If the sandbox hides that dictionary, the UI already shows `--`. Do not add a temporary exception to force it.

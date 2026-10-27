@@ -41,7 +41,7 @@ final class TemperatureMonitor: MetricProvider {
         MetricReading(menu: "\(L10n.tr(.temperature)): \(L10n.tr(level.labelKey))",
                       compact: CompactReading(top: level.compactToken,
                                               bottom: "TEMP",
-                                              topWidthTemplate: "WARM"),
+                                              topWidthTemplate: "MAX"),
                       heat: level.heat,
                       value: .thermal(level))
     }

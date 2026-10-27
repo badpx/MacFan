@@ -49,7 +49,7 @@ final class MetricPresentationTests: XCTestCase {
         XCTAssertEqual(L10n.string(.thermalFair, language: "en"), "Fair")
         XCTAssertEqual(L10n.string(.thermalSerious, language: "en"), "Serious")
         XCTAssertEqual(ThermalLevel.nominal.compactToken, "OK")
-        XCTAssertEqual(ThermalLevel.fair.compactToken, "WARM")
+        XCTAssertEqual(ThermalLevel.fair.compactToken, "MID")
         XCTAssertEqual(ThermalLevel.serious.compactToken, "HOT")
         XCTAssertEqual(ThermalLevel.critical.compactToken, "MAX")
     }
