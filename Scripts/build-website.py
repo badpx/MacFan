@@ -112,7 +112,7 @@ def build(output, base, site_url, release_file):
         asset_versions[name] = hashlib.sha256((output / "assets" / name).read_bytes()).hexdigest()[:12]
     for destination, source in {
         "favicon.png": "website/favicon.png",
-        "app-icon.png": "Design/MacFan-UI/MacFan-AppIcon.png",
+        "app-icon.png": "Design/MacFan-UI/MenuGauge-AppIcon.png",
         "preview-light-en.png": "website/preview/preview-light-en.png",
         "preview-dark-en.png": "website/preview/preview-dark-en.png",
         "preview-settings-en.png": "website/preview/preview-settings-en.png",

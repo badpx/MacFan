@@ -13,12 +13,12 @@ import SwiftUI
 /// and periodically probes for free space to bring them back.
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
-    /// Single view that draws every menu bar widget in one draw(_:).
-    /// An earlier version used per-metric NSTextFields in an NSStackView;
-    /// keeping that hierarchy alive made AppKit continuously re-render
-    /// status-item snapshots (~50% CPU). One flat view with manual text
-    /// drawing keeps the per-tick cost near zero. Clicks fall through to
-    /// the status bar button via the nil hit test.
+    /// Single view that draws the gauge and every menu bar widget in one
+    /// draw(_:). An earlier version used per-metric NSTextFields in an
+    /// NSStackView; keeping that hierarchy alive made AppKit continuously
+    /// re-render status-item snapshots (~50% CPU). One flat view keeps the
+    /// per-tick cost near zero. Clicks fall through to the status bar
+    /// button via the nil hit test.
     private final class WidgetsView: NSView {
         struct Part {
             var top: String
@@ -28,6 +28,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         var parts: [Part] = []
+        /// Cached template image. Redraws only when the quantized gauge changes.
+        var gaugeImage: NSImage? {
+            didSet {
+                if oldValue !== gaugeImage { needsDisplay = true }
+            }
+        }
+
+        static let gaugeOriginX: CGFloat = 4
+        static let gaugeWidth: CGFloat = 22
+        static let gaugeHeight: CGFloat = 18
+        /// Image plus a few points of padding on each side, before the metrics.
+        static let gaugeSlot: CGFloat = 30
 
         /// y = 0 at the top, so "top" text really draws on top.
         override var isFlipped: Bool { true }
@@ -53,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         func relayout() -> CGFloat {
             origins.removeAll()
             widths.removeAll()
-            var x: CGFloat = 0
+            var x: CGFloat = Self.gaugeSlot
             for (index, part) in parts.enumerated() {
                 if index > 0 { x += Self.separatorWidth }
                 let width: CGFloat
@@ -72,6 +84,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         override func draw(_ dirtyRect: NSRect) {
+            if let image = gaugeImage {
+                image.isTemplate = true
+                let height = min(Self.gaugeHeight, max(1, bounds.height - 2))
+                let width = Self.gaugeWidth * (height / Self.gaugeHeight)
+                let rect = NSRect(x: Self.gaugeOriginX,
+                                  y: (bounds.height - height) / 2,
+                                  width: width, height: height)
+                image.draw(in: rect, from: .zero, operation: .sourceOver,
+                           fraction: 1, respectFlipped: true, hints: nil)
+            }
             let height = bounds.height
             let color = NSColor.labelColor
             for (index, part) in parts.enumerated() {
@@ -134,6 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var widgetsView: WidgetsView?
 
     private var statusItem: NSStatusItem!
+    private let gauge = MenuBarGauge()
     private let popover = NSPopover()
     private let panelModel = PopoverModel()
     private var keyMonitor: Any?
@@ -183,7 +206,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = NSHostingController(rootView: PopoverView(model: panelModel))
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
-        statusItem.button?.setAccessibilityLabel("MenuGauge")
+        gauge.onUpdate = { [weak self] in self?.applyGaugeAppearance() }
+        gauge.start()
         panelModel.onSelection = { [weak self] id, enabled in self?.setMetric(id, enabled: enabled) }
         panelModel.onLogin = { [weak self] enabled in self?.setLaunchAtLogin(enabled) }
         panelModel.onQuit = { [weak self] in self?.quit() }
@@ -218,10 +242,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(probeRestoreIfDue),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        updateStatusBar()
     }
 
     private func refresh() {
         for provider in providers { readings[provider.id] = provider.sample() }
+        if case .percent(let cpu) = readings["cpu"]?.value {
+            gauge.noteCPU(cpu)
+        } else {
+            gauge.noteCPU(nil)
+        }
+        gauge.refreshThermal()
         updateStatusBar()
         checkVisibilityAndDegrade()
         probeRestoreIfDue()
@@ -290,14 +321,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: - Menu bar widgets
 
-    /// Shows the selected metrics directly in the menu bar; falls back
-    /// to the app icon when nothing is selected. Per tick this only
-    /// rewrites the strings of one flat view and asks it to redraw;
-    /// the status item is resized solely when the total width changes.
+    /// Shows the live gauge, with selected metrics to its right. Turning
+    /// every metric off leaves the gauge on its own. The gauge is drawn in
+    /// this same view, and its bitmap is swapped only when the quantized
+    /// state changes.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
         defer { syncPopover() }
 
+        button.setAccessibilityLabel(gauge.accessibilityLabel)
         button.setAccessibilityValue(providers.filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.menu }.joined(separator: ", "))
 
@@ -306,29 +338,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             .compactMap { readings[$0.id]?.compact }
         hiddenWidgetCount = min(hiddenWidgetCount, selectedParts.count)
         // Suppressed widgets drop off the right end first.
-        let parts = selectedParts.dropLast(hiddenWidgetCount)
+        let parts = Array(selectedParts.dropLast(hiddenWidgetCount))
         renderedWidgetCount = parts.count
 
-        guard !parts.isEmpty else {
-            widgetsView?.removeFromSuperview()
-            widgetsView = nil
-            button.title = ""
-            let symbolName = NSImage(systemSymbolName: "fan", accessibilityDescription: nil) != nil
-                ? "fan" : "gauge.medium"
-            var image = NSImage(systemSymbolName: symbolName,
-                                accessibilityDescription: "MenuGauge")
-            // Slightly larger than the default menu bar glyph size.
-            if let configured = image?.withSymbolConfiguration(
-                .init(pointSize: 15, weight: .regular, scale: .medium)) {
-                image = configured
-            }
-            image?.isTemplate = true
-            button.image = image
-            statusItem.length = NSStatusItem.squareLength
-            return
-        }
-
-        button.layer?.setAffineTransform(.identity)
         button.image = nil
         button.title = ""
 
@@ -341,19 +353,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             widgetsView = view
         }
 
+        view.gaugeImage = gauge.image
         view.parts = parts.map {
             WidgetsView.Part(top: $0.top, bottom: $0.bottom, uniformFont: $0.uniformFont,
                              topWidthTemplate: $0.topWidthTemplate)
         }
-        let width = view.relayout()
-
+        let contentWidth = view.relayout()
         let barHeight = NSStatusBar.system.thickness
-        if view.frame.width != width || view.frame.height != barHeight {
-            view.frame = NSRect(x: 3, y: 0, width: width, height: barHeight)
-            statusItem.length = width + 6
+        let viewWidth = parts.isEmpty ? WidgetsView.gaugeSlot : contentWidth
+        let length = parts.isEmpty ? WidgetsView.gaugeSlot + 2 : contentWidth + 4
+        if view.frame.minX != 0 || view.frame.width != viewWidth || view.frame.height != barHeight
+            || statusItem.length != length {
+            view.frame = NSRect(x: 0, y: 0, width: viewWidth, height: barHeight)
+            statusItem.length = length
             skipVisibilityCheck = true
         }
         view.needsDisplay = true
+    }
+
+    private func applyGaugeAppearance() {
+        widgetsView?.gaugeImage = gauge.image
+        statusItem.button?.setAccessibilityLabel(gauge.accessibilityLabel)
     }
 
     /// Per-tick overflow handling. When a status item no longer fits,

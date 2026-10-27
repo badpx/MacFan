@@ -77,7 +77,7 @@ bash Scripts/build.sh dmg
 
 1. `swift build -c release --arch arm64` 与 `x86_64`（`--build-system native`），**不**定义 `MAS`。产物放在 `build/spm-direct`，避免和 App Store 编译混用对象文件。
 2. `lipo` 成通用二进制，并确认两个切片都引用了 `_IOServiceOpen`、二进制里有 `AppleSMC` 字面量，且没有私有的 `IOHIDEventSystemClientCreate`。
-3. 组装 `.app`：`actool` 编译 `Resources/MacFanFlat.icon`（macOS 26 的扁平图标；macOS 13–15 仍用 ICNS）、拷贝菜单栏眼睛图标和 `PrivacyInfo.xcprivacy`、写入版本号。
+3. 组装 `.app`：`actool` 编译 `Resources/MenuGaugeFlat.icon`（macOS 26 的扁平图标；macOS 13–15 仍用 ICNS）、拷贝 `PrivacyInfo.xcprivacy`、写入版本号。
 4. 用 Developer ID Application 签名，`--options runtime --timestamp`。没有沙盒，也没有额外 entitlements。
 5. 做 UDZO 磁盘映像，卷名是 MenuGauge，卷内是 `MenuGauge.app` 和指向 `/Applications` 的替身，再用同一身份给 dmg 签名。
 6. `xcrun notarytool submit --wait`，然后 `xcrun stapler staple` 与 `stapler validate`。
@@ -291,7 +291,7 @@ bash Scripts/build.sh dmg
 
 1. `swift build -c release` for `arm64` and `x86_64` (`--build-system native`), without `MAS`. Objects go to `build/spm-direct` so they cannot be reused by the App Store compile.
 2. `lipo` builds the universal binary and checks that both slices reference `_IOServiceOpen`, that the `AppleSMC` literal is present, and that private `IOHIDEventSystemClientCreate` is absent.
-3. Assembles the `.app`: `actool` compiles `Resources/MacFanFlat.icon` (flat icon on macOS 26; ICNS on macOS 13–15), copies the menu-bar eye images and `PrivacyInfo.xcprivacy`, and writes the version.
+3. Assembles the `.app`: `actool` compiles `Resources/MenuGaugeFlat.icon` (flat icon on macOS 26; ICNS on macOS 13–15), copies `PrivacyInfo.xcprivacy`, and writes the version.
 4. Signs with Developer ID Application, `--options runtime --timestamp`. No sandbox and no extra entitlements.
 5. Builds a UDZO disk image with volume name MenuGauge, containing `MenuGauge.app` and a symlink to `/Applications`, then signs the dmg with the same identity.
 6. `xcrun notarytool submit --wait`, then `xcrun stapler staple` and `stapler validate`.

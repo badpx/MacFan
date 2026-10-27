@@ -33,7 +33,7 @@
   "Website.capacityTitle": "Memória, disco e rede",
   "Website.capacityBody": "A memória segue o Monitor de Atividade: memória das apps, memória wired e comprimida. O disco é o volume do sistema, utilizado e total, em GB decimais — as mesmas unidades do Finder e das Definições do Sistema. A rede mostra envio e receção nas interfaces físicas en*. Se uma VPN ou um filtro como o CorpLink mantiver o contador de entrada em zero, a receção mostra -- em vez de um 0 enganador, e volta quando o tráfego de entrada volta a ser contado.",
   "Website.menuTitle": "Uma barra de menus à sua escolha",
-  "Website.menuBody": "As leituras ativas usam um esquema compacto de duas linhas. Quando falta espaço, os valores ocultam-se a partir da direita e regressam sozinhos. Se desligar todas, fica o ícone da ventoinha. Abrir ao iniciar sessão está no mesmo separador.",
+  "Website.menuBody": "As leituras ativas usam um esquema compacto de duas linhas. Quando falta espaço, os valores ocultam-se a partir da direita e regressam sozinhos. Se desligar todas, fica o ícone do medidor. Abrir ao iniciar sessão está no mesmo separador.",
   "Website.heatTitle": "Cor quando aquece",
   "Website.heatBody": "A partir de 75 °C, ou de 80% de memória ou disco, a cor passa do laranja para o vermelho. Chega ao topo dessa escala a 85 °C ou 90%. O texto acompanha a cor.",
   "Website.controlsEyebrow": "Controlos",

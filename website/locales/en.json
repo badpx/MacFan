@@ -33,7 +33,7 @@
   "Website.capacityTitle": "Memory, disk and network",
   "Website.capacityBody": "Memory follows Activity Monitor: app memory, wired and compressed. Disk is the system volume, used and total, in decimal GB — the same units as Finder and System Settings. Network shows upload and download on physical en* interfaces. If a VPN or filter such as CorpLink keeps the inbound counter at zero, download shows -- instead of a misleading 0, and returns when inbound traffic is counted again.",
   "Website.menuTitle": "A menu bar you choose",
-  "Website.menuBody": "Enabled readings use a compact two-line layout. When the menu bar runs out of room, values hide from the right and come back on their own. Turn every reading off and the fan icon remains. Launch at login is on the same tab.",
+  "Website.menuBody": "Enabled readings use a compact two-line layout. When the menu bar runs out of room, values hide from the right and come back on their own. Turn every reading off and the gauge icon remains. Launch at login is on the same tab.",
   "Website.heatTitle": "Color when it runs hot",
   "Website.heatBody": "From 75 °C, or from 80% memory or disk, the color moves from orange toward red. It reaches the top of that scale at 85 °C or 90%. Words stay with the color.",
   "Website.controlsEyebrow": "Controls",

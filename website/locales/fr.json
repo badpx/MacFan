@@ -33,7 +33,7 @@
   "Website.capacityTitle": "Mémoire, disque et réseau",
   "Website.capacityBody": "La mémoire suit Moniteur d’activité : mémoire de l’app, fichiers liés et mémoire compressée. Le disque est le volume système, utilisé et total, en Go décimaux, les mêmes unités que le Finder et Réglages Système. Le réseau montre l’envoi et la réception sur les interfaces physiques en*. Si un VPN ou un filtre comme CorpLink maintient le compteur entrant à zéro, la réception affiche -- au lieu d’un 0 trompeur, puis revient quand le trafic entrant est de nouveau compté.",
   "Website.menuTitle": "Une barre des menus à vous",
-  "Website.menuBody": "Les mesures activées utilisent une disposition compacte sur deux lignes. Quand la place manque, les valeurs se masquent depuis la droite et reviennent seules. Tout désactiver laisse l’icône du ventilateur. L’ouverture à la connexion est dans le même onglet.",
+  "Website.menuBody": "Les mesures activées utilisent une disposition compacte sur deux lignes. Quand la place manque, les valeurs se masquent depuis la droite et reviennent seules. Tout désactiver laisse l’icône de la jauge. L’ouverture à la connexion est dans le même onglet.",
   "Website.heatTitle": "De la couleur quand ça chauffe",
   "Website.heatBody": "À partir de 75 °C, ou de 80 % de mémoire ou de disque, la couleur passe de l’orange vers le rouge. Elle atteint le haut de cette échelle à 85 °C ou 90 %. Le texte reste avec la couleur.",
   "Website.controlsEyebrow": "Commandes",
