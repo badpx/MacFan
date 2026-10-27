@@ -26,9 +26,11 @@ macOS 菜单栏系统监控小工具：查看 CPU / GPU 占用率、系统温度
 bash Scripts/build.sh
 ```
 
-产出 `build/MacFan.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。
+产出 `build/MacFan.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。版本号和构建号由脚本写入，未指定时为 `1.0.0`（build `1`）。
 
-分发给其他人：ad-hoc 签名不带开发者身份，对方通过浏览器/AirDrop 等渠道下载后首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MacFan.app`）；U 盘等本地拷贝无此提示。如需双击即开零警告，需 Apple Developer Program 的 Developer ID 签名 + 公证。
+这条本地包仍是 ad-hoc 签名。发给别人用的公证 DMG，以及 Mac App Store 的沙盒 pkg，见 [docs/Release.md](docs/Release.md)（中英）。ad-hoc 包通过浏览器或隔空投送下载后，首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MacFan.app`）；U 盘等本地拷贝无此提示。
+
+App Store 版在编译期去掉 AppleSMC（风扇转速与 CPU 温度），改为显示系统热状态。直接分发的 DMG 仍读取 SMC，行为与现在一致。
 
 ## 安装
 

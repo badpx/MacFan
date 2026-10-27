@@ -9,7 +9,7 @@
 - 英文位于根路径，其他语言有独立目录、页面语言、标题、描述、canonical 和 hreflang。语言选择器切换静态页面。正文与下载链接在禁用 JavaScript 时仍可用；切换语言需要 JavaScript。
 - 浅色、深色和设置页预览是当前应用用 `MacFan --ui-snapshot` 截下的原生界面，放在 `website/preview/`。英语、简体中文、繁体中文各一套；其他语言页面用英语界面。图标仍复用 `Design/MacFan-UI/MacFan-AppIcon.png`。
 - 构建会给 CSS 和 JavaScript 链接附加内容摘要，避免新页面继续加载浏览器缓存中的旧样式或脚本。
-- 工作流在相关源码合入 main、Release 变更或手动触发时重建。线上构建从 GitHub API 读取最新正式 Release 的 `MacFan-<tag>.zip`；失败会中止部署，不会用过期版本替换网站。Release 事件始终检出 main，避免旧版本标签覆盖官网源码。
+- 工作流在相关源码合入 main、Release 变更或手动触发时重建。线上构建从 GitHub API 读取最新正式 Release 的 `MacFan-<tag>.dmg`，没有磁盘映像时才用同名 `.zip`；两种都没有就中止部署，不会用过期版本替换网站。Release 事件始终检出 main，避免旧版本标签覆盖官网源码。
 - `release.json` 是本地离线预览快照（当前为 v1.1.2）。线上构建用最新 API 数据覆盖输入。不要把 API token 写入该文件。
 
 ## 本地预览

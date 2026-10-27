@@ -5,6 +5,10 @@ import Foundation
 /// space (local snapshots, caches) as available — matching the usage shown
 /// in Finder and System Settings. `statfs`/`systemFreeSize` would report
 /// purgeable space as used and overstate usage.
+/// That available-capacity key is a required-reason disk space API.
+/// `Resources/PrivacyInfo.xcprivacy` declares it as 85F4.1 (shown to the
+/// person using the Mac, never sent off the device). `volumeTotalCapacity`
+/// is not on Apple's required-reason list.
 final class DiskMonitor: MetricProvider {
 
     let id = "disk"

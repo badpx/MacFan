@@ -54,4 +54,28 @@ final class TemperatureMonitorTests: XCTestCase {
         }, 55)
         XCTAssertNil(TemperatureMonitor.cpuTemperature(chipName: "Intel(R) Core(TM) i7") { _ in 0 })
     }
+
+    func testAppStoreThermalReadingIsNotADegreeValue() {
+        let reading = TemperatureMonitor.thermalReading(level: .critical)
+        guard case .thermal(let level) = reading.value else {
+            return XCTFail("Expected a thermal-state reading")
+        }
+        XCTAssertEqual(level, .critical)
+        XCTAssertEqual(reading.heat, ThermalLevel.critical.heat)
+        XCTAssertEqual(reading.compact?.top, "MAX")
+        XCTAssertEqual(reading.compact?.bottom, "TEMP")
+        XCTAssertNil(reading.value?.scalar)
+        XCTAssertFalse(reading.menu.contains("°"))
+    }
+
+    func testThermalRampMatchesSeverity() {
+        XCTAssertNil(ThermalLevel.nominal.heat)
+        XCTAssertEqual(ThermalLevel.fair.heat, 0.35)
+        XCTAssertEqual(ThermalLevel.serious.heat, 0.7)
+        XCTAssertEqual(ThermalLevel.critical.heat, 1)
+        XCTAssertEqual(ThermalLevel.nominal.compactToken, "OK")
+        XCTAssertEqual(ThermalLevel.fair.compactToken, "WARM")
+        XCTAssertEqual(ThermalLevel.serious.compactToken, "HOT")
+        XCTAssertEqual(ThermalLevel.critical.compactToken, "MAX")
+    }
 }
