@@ -47,7 +47,7 @@
   "Website.faqEyebrow": "安裝之前",
   "Website.faqTitle": "有幾件事需要知道。",
   "Website.faqInstall": "如何安裝 MacFan？",
-  "Website.faqInstallBody": "需要 macOS 13 或以上。下載 zip，解壓縮後把 MacFan.app 拖入「應用程式」，然後打開。它是同時支援 Apple 晶片與 Intel 的通用 App。安裝套件為 ad-hoc 簽名且未公證，因此透過瀏覽器或 AirDrop 下載後，第一次打開會被 Gatekeeper 攔截。請按住 Control 並點一下 App，選擇「打開」，或在「系統設定 → 隱私權與安全性」中允許打開。從 USB 隨身碟等本地拷貝打開時不會出現這個提示。",
+  "Website.faqInstallBody": "需要 macOS 13 或以上。它是同時支援 Apple 晶片與 Intel 的通用 App。目前的下載是已公證的磁碟映像：打開後把 MacFan.app 拖入「應用程式」。如果某個版本仍是 zip，解壓縮後同樣把 App 拖入「應用程式」。已公證的 Developer ID 版本可直接打開。較早的 ad-hoc 版本透過瀏覽器或 AirDrop 下載後，第一次打開會被 Gatekeeper 攔截：請按住 Control 並點一下 App，選擇「打開」，或在「系統設定 → 隱私權與安全性」中允許打開。",
   "Website.faqLogin": "為什麼登入時啟動需要核准？",
   "Website.faqLoginBody": "這個開關使用 macOS 13 及更高版本的系統登入項目。第一次打開時，請在「系統設定 → 一般 → 登入項目」中允許 MacFan。若仍需要系統核准，面板會提供前往系統設定的入口。若設定失敗，MacFan 會顯示原因，並保持開關的真實狀態。",
   "Website.faqLanguages": "有我的語言嗎？",

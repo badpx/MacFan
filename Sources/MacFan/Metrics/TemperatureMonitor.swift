@@ -1,17 +1,26 @@
 import Foundation
+#if !MAS
 import Darwin
+#endif
 
 /// CPU temperature using Lemon's model-specific SMC sensor selection.
 /// Apple Silicon reports the mean of valid readings; Intel probes CPU keys
 /// in priority order. Unrelated HID/PMU readings must not stand in for CPU data.
+/// The Mac App Store edition (`-DMAS`) has no SMC client and reports
+/// `ProcessInfo.thermalState` instead of a degree value.
 final class TemperatureMonitor: MetricProvider {
 
     let id = "temperature"
 
+    #if !MAS
     private let smc = try? SMC()
     private let chipName = TemperatureMonitor.systemChipName()
+    #endif
 
     func sample() -> MetricReading {
+        #if MAS
+        return Self.thermalReading(level: .current)
+        #else
         guard let temperature = Self.cpuTemperature(chipName: chipName, read: { smc?.temperature($0) }) else {
             return MetricReading(menu: "\(L10n.tr(.temperature)): --")
         }
@@ -23,6 +32,18 @@ final class TemperatureMonitor: MetricProvider {
                                                      bottom: "TEMP",
                                                      topWidthTemplate: "100°"),
                              heat: heat, value: .temperature(temperature))
+        #endif
+    }
+
+    /// App Store stand-in for °C. The direct edition does not use this in
+    /// `sample()`; tests lock the wording and the heat ramp.
+    static func thermalReading(level: ThermalLevel) -> MetricReading {
+        MetricReading(menu: "\(L10n.tr(.temperature)): \(L10n.tr(level.labelKey))",
+                      compact: CompactReading(top: level.compactToken,
+                                              bottom: "TEMP",
+                                              topWidthTemplate: "WARM"),
+                      heat: level.heat,
+                      value: .thermal(level))
     }
 
     /// Same strict bounds as Lemon: missing, non-finite, <=20 and >=110
@@ -80,6 +101,7 @@ final class TemperatureMonitor: MetricProvider {
         }
     }
 
+    #if !MAS
     private static func systemChipName() -> String? {
         var size = 0
         guard sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0) == 0, size > 0 else {
@@ -91,4 +113,5 @@ final class TemperatureMonitor: MetricProvider {
         }
         return String(cString: buffer).trimmingCharacters(in: .whitespacesAndNewlines)
     }
+    #endif
 }

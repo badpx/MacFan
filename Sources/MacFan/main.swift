@@ -10,6 +10,13 @@ if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshot"),
 
 // Debug mode: dump raw SMC data for fan-related keys.
 //   MacFan --fandump
+// The App Store binary does not contain the AppleSMC client.
+#if MAS
+if CommandLine.arguments.contains("--fandump") {
+    fputs("SMC fan dump is omitted from the Mac App Store build.\n", stderr)
+    exit(1)
+}
+#else
 if CommandLine.arguments.contains("--fandump") {
     guard let smc = try? SMC() else {
         print("SMC unavailable")
@@ -28,6 +35,7 @@ if CommandLine.arguments.contains("--fandump") {
     }
     exit(0)
 }
+#endif
 
 // Smoke-test mode for CLI verification of the sensor plumbing:
 //   MacFan --smoke

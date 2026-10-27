@@ -21,6 +21,52 @@ struct CompactReading {
     }
 }
 
+/// `ProcessInfo.thermalState`, used where the Mac App Store sandbox cannot
+/// read AppleSMC. Menu-bar tokens stay short so translations of the full
+/// name do not resize the status item.
+enum ThermalLevel: Equatable {
+    case nominal, fair, serious, critical
+
+    static var current: ThermalLevel {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return .nominal
+        case .fair: return .fair
+        case .serious: return .serious
+        case .critical: return .critical
+        @unknown default: return .serious
+        }
+    }
+
+    var labelKey: L10n.Key {
+        switch self {
+        case .nominal: return .thermalNominal
+        case .fair: return .thermalFair
+        case .serious: return .thermalSerious
+        case .critical: return .thermalCritical
+        }
+    }
+
+    /// Fixed-width menu-bar token. The popover uses `labelKey` instead.
+    var compactToken: String {
+        switch self {
+        case .nominal: return "OK"
+        case .fair: return "WARM"
+        case .serious: return "HOT"
+        case .critical: return "MAX"
+        }
+    }
+
+    /// Same orange-to-red ramp shape as a hot CPU reading: nil is normal.
+    var heat: Double? {
+        switch self {
+        case .nominal: return nil
+        case .fair: return 0.35
+        case .serious: return 0.7
+        case .critical: return 1
+        }
+    }
+}
+
 /// Structured values for the popover. Capacity is expressed in the same
 /// GB/GiB convention as its provider; network rates are bytes per second.
 enum MetricValue {
@@ -29,11 +75,14 @@ enum MetricValue {
     case temperature(Double)
     case fan(Double)
     case network(download: Double?, upload: Double?)
+    case thermal(ThermalLevel)
 
     var scalar: Double? {
         switch self {
-        case .percent(let value), .temperature(let value), .fan(let value): return value
-        default: return nil
+        case .percent(let value), .temperature(let value), .fan(let value):
+            return value
+        case .capacity, .network, .thermal:
+            return nil
         }
     }
 }

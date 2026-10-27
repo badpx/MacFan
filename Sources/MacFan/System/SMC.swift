@@ -1,3 +1,7 @@
+// AppleSMC user client. The Mac App Store edition passes `-Xswiftc -DMAS`:
+// App Sandbox blocks this client, and an iokit-user-client-class exception
+// is rejected in review, so the class is omitted from that binary.
+#if !MAS
 import Foundation
 import IOKit
 
@@ -204,3 +208,4 @@ final class SMC {
         readNumber(key)
     }
 }
+#endif

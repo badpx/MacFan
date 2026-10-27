@@ -95,7 +95,7 @@ struct PopoverView: View {
     private var stats: some View {
         HStack(spacing: 0) {
             stat(value: usageValue("cpu"), caption: L10n.ui(.cpuUsage))
-            stat(value: temperatureValue, caption: L10n.ui(.cpuTemperature),
+            stat(value: temperatureValue, caption: temperatureCaption,
                  heat: model.readings["temperature"]?.heat)
             stat(value: usageValue("gpu"), caption: L10n.ui(.gpuUsage))
         }
@@ -106,9 +106,21 @@ struct PopoverView: View {
         return MetricFormat.number(scalar, decimals: 0) + "%"
     }
 
+    /// Direct edition shows °C. The App Store edition stores a thermal
+    /// state instead, and must not fall through to "N/A" for a missing scalar.
     private var temperatureValue: String {
+        if case .thermal(let level) = model.readings["temperature"]?.value {
+            return L10n.tr(level.labelKey)
+        }
         guard let scalar = model.readings["temperature"]?.value?.scalar else { return "N/A" }
         return MetricFormat.number(scalar, decimals: 0) + "°C"
+    }
+
+    private var temperatureCaption: String {
+        if case .thermal = model.readings["temperature"]?.value {
+            return L10n.tr(.thermalState)
+        }
+        return L10n.ui(.cpuTemperature)
     }
 
     private func stat(value: String, caption: String, heat: Double? = nil) -> some View {
@@ -149,10 +161,16 @@ struct PopoverView: View {
     }
 
     private var fanRow: some View {
-        let rpm = model.readings["fan"]?.value?.scalar
-        let value = rpm.map { MetricFormat.number($0, decimals: 0) + " RPM" } ?? "N/A"
+        let text: String
+        if case .thermal(let level) = model.readings["fan"]?.value {
+            text = "\(L10n.tr(.fan)) \(L10n.tr(level.labelKey))"
+        } else {
+            let rpm = model.readings["fan"]?.value?.scalar
+            let value = rpm.map { MetricFormat.number($0, decimals: 0) + " RPM" } ?? "N/A"
+            text = "\(L10n.tr(.fan)) \(value)"
+        }
         return row(symbol: "fan") {
-            Text("\(L10n.tr(.fan)) \(value)")
+            Text(text)
         }
     }
 

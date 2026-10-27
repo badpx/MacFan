@@ -47,7 +47,7 @@
   "Website.faqEyebrow": "설치하기 전에",
   "Website.faqTitle": "먼저 알아 둘 것.",
   "Website.faqInstall": "MacFan은 어떻게 설치하나요?",
-  "Website.faqInstallBody": "macOS 13 이상이 필요합니다. zip을 받아 풀고 MacFan.app을 응용 프로그램 폴더로 옮긴 다음 엽니다. Apple Silicon과 Intel용 유니버설 앱입니다. 배포 파일은 ad-hoc 서명이며 공증되지 않았으므로, 브라우저나 AirDrop으로 받은 뒤 처음 열면 Gatekeeper가 막습니다. 앱을 오른쪽 클릭해 열기를 선택하거나, 시스템 설정 → 개인정보 보호 및 보안에서 허용하세요. USB 드라이브 등 로컬 복사본에는 이 확인이 나오지 않습니다.",
+  "Website.faqInstallBody": "macOS 13 이상이 필요합니다. Apple Silicon과 Intel용 유니버설 앱입니다. 현재 다운로드는 공증된 디스크 이미지입니다. 열어 MacFan.app을 응용 프로그램 폴더로 옮기세요. 릴리스가 아직 zip이면 압축을 푼 뒤 같은 방식으로 옮기면 됩니다. 공증된 Developer ID 빌드는 바로 열립니다. 이전 ad-hoc 빌드는 브라우저나 AirDrop으로 받은 뒤 처음 열 때 Gatekeeper가 막습니다. 앱을 오른쪽 클릭해 열기를 선택하거나, 시스템 설정 → 개인정보 보호 및 보안에서 허용하세요.",
   "Website.faqLogin": "로그인할 때 열기에 승인이 필요한 이유는 무엇인가요?",
   "Website.faqLoginBody": "이 스위치는 macOS 13 이상의 로그인 항목을 사용합니다. 처음 켜면 시스템 설정 → 일반 → 로그인 항목에서 MacFan을 허용하세요. 아직 승인이 필요하면 패널에서 시스템 설정으로 갈 수 있습니다. 실패하면 이유를 보여 주고 스위치는 실제 상태를 유지합니다.",
   "Website.faqLanguages": "내 언어로 사용할 수 있나요?",

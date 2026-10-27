@@ -14,6 +14,18 @@ final class MetricPresentationTests: XCTestCase {
         XCTAssertNil(FanMonitor.average([-1, 2000]))
     }
 
+    func testAppStoreFanReadingHasNoRPM() {
+        let reading = FanMonitor.thermalReading(level: .fair)
+        guard case .thermal(.fair) = reading.value else {
+            return XCTFail("Expected a thermal-state reading")
+        }
+        XCTAssertEqual(reading.compact?.top, "WARM")
+        XCTAssertEqual(reading.compact?.bottom, "FAN")
+        XCTAssertEqual(reading.heat, 0.35)
+        XCTAssertNil(reading.value?.scalar)
+        XCTAssertFalse(reading.menu.contains("RPM"))
+    }
+
     func testUnavailableAndZeroNetworkRatesRemainDistinct() {
         XCTAssertEqual(MetricFormat.rate(nil).value, "N/A")
         XCTAssertEqual(MetricFormat.rate(nil).unit, "")

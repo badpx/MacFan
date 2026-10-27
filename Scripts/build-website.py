@@ -40,6 +40,27 @@ def app_languages():
     return set(TABLE_KEY.findall(source))
 
 
+def release_download(release, tag):
+    """Prefer the notarized disk image. Older releases are still a zip."""
+    prefix = f"https://github.com/badpx/MacFan/releases/download/{tag}/"
+    assets = release.get("assets")
+    if not isinstance(assets, list):
+        raise ValueError("Release is missing assets")
+    for name in (f"MacFan-{tag}.dmg", f"MacFan-{tag}.zip"):
+        matches = [item for item in assets if item.get("name") == name]
+        if len(matches) > 1:
+            raise ValueError(f"Expected at most one {name} in the latest release")
+        if len(matches) != 1:
+            continue
+        download = matches[0].get("browser_download_url", "")
+        if not isinstance(download, str) or not download.startswith(prefix) or not download.endswith(name):
+            raise ValueError("Unexpected download URL")
+        return download
+    raise ValueError(
+        f"Expected MacFan-{tag}.dmg (preferred) or MacFan-{tag}.zip in the latest release"
+    )
+
+
 def build(output, base, site_url, release_file):
     if base and (not base.startswith("/") or base.endswith("/") or ".." in base):
         raise ValueError("Base must be empty or an absolute path without a trailing slash")
@@ -51,14 +72,7 @@ def build(output, base, site_url, release_file):
     tag = release.get("tag_name", "")
     if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
         raise ValueError("Unexpected release tag")
-    expected_name = f"MacFan-{tag}.zip"
-    assets = [item for item in release["assets"] if item["name"] == expected_name]
-    if len(assets) != 1:
-        raise ValueError(f"Expected exactly one {expected_name} in the latest release")
-    download = assets[0]["browser_download_url"]
-    prefix = f"https://github.com/badpx/MacFan/releases/download/{tag}/"
-    if not download.startswith(prefix) or not download.endswith(expected_name):
-        raise ValueError("Unexpected download URL")
+    download = release_download(release, tag)
     if release["html_url"] != f"https://github.com/badpx/MacFan/releases/tag/{tag}":
         raise ValueError("Unexpected release URL")
 

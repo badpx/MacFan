@@ -47,7 +47,7 @@
   "Website.faqEyebrow": "Before you install",
   "Website.faqTitle": "A few things to know.",
   "Website.faqInstall": "How do I install MacFan?",
-  "Website.faqInstallBody": "Requires macOS 13 or later. Download the zip, unpack it, and drag MacFan.app into Applications, then open it. It is a universal app for Apple Silicon and Intel. The download is ad-hoc signed and not notarized, so Gatekeeper blocks the first open after a browser or AirDrop download. Right-click the app, choose Open, and confirm, or allow it in System Settings → Privacy & Security. A copy from a USB drive does not show that prompt.",
+  "Website.faqInstallBody": "Requires macOS 13 or later. It is a universal app for Apple Silicon and Intel. The current download is a notarized disk image: open it and drag MacFan.app into Applications. If a release is still a zip, unpack it and drag the app across the same way. A notarized Developer ID build opens normally. An older ad-hoc build is blocked by Gatekeeper the first time you open it after a browser or AirDrop download: right-click the app, choose Open, and confirm, or allow it in System Settings → Privacy & Security.",
   "Website.faqLogin": "Why does launch at login need approval?",
   "Website.faqLoginBody": "The switch uses the system login item on macOS 13 and later. The first time you turn it on, allow MacFan in System Settings → General → Login Items. If approval is still required, the panel links to System Settings. If it fails, MacFan shows the reason and leaves the switch in its real state.",
   "Website.faqLanguages": "Is it available in my language?",
