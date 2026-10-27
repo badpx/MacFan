@@ -807,10 +807,31 @@ h2 {
   text-underline-offset:4px;
 }
 
-html[data-policy="en"] .only-zh,
-html[data-policy="zh"] .only-en { display:none; }
+html[data-policy="en"] .i18n:not(.i18n-en),
+html[data-policy="zh-Hans"] .i18n:not(.i18n-zh-Hans),
+html[data-policy="zh-Hant"] .i18n:not(.i18n-zh-Hant),
+html[data-policy="ja"] .i18n:not(.i18n-ja),
+html[data-policy="ko"] .i18n:not(.i18n-ko),
+html[data-policy="hi"] .i18n:not(.i18n-hi),
+html[data-policy="es"] .i18n:not(.i18n-es),
+html[data-policy="fr"] .i18n:not(.i18n-fr),
+html[data-policy="bn"] .i18n:not(.i18n-bn),
+html[data-policy="ru"] .i18n:not(.i18n-ru),
+html[data-policy="pt"] .i18n:not(.i18n-pt) { display:none; }
 
 html[lang^=zh] .privacy-page h1 { letter-spacing:-1.2px; line-height:1.28; }
+
+html[lang=ja] .privacy-page h1,
+html[lang=ko] .privacy-page h1,
+html[lang=hi] .privacy-page h1,
+html[lang=bn] .privacy-page h1 { letter-spacing:0; line-height:1.35; }
+
+html[lang=ru] .privacy-page h1,
+html[lang=fr] .privacy-page h1,
+html[lang=es] .privacy-page h1,
+html[lang=pt] .privacy-page h1 { letter-spacing:-.8px; line-height:1.22; }
+
+.privacy-page h1,.privacy-page h2,.privacy-page p { overflow-wrap:break-word; }
 
 html[lang^=zh] .hero h1 {
   font-size:clamp(44px,4.8vw,64px);
