@@ -11,7 +11,7 @@
 - 构建会给 CSS 和 JavaScript 链接附加内容摘要，避免新页面继续加载浏览器缓存中的旧样式或脚本。
 - 工作流在相关源码合入 main、Release 变更或手动触发时重建。MenuGauge 的发行标签是两段式，第一个发行版是 `v1.0`，附件名是 `MenuGauge-v1.0.dmg`。线上构建从 GitHub API 读取最新正式 Release，优先 `MenuGauge-<tag>.dmg`，其次同名 `.zip`。已经发布的 MacFan 标签不删除、不改名；最新 Release 若仍是三段式标签或 `MacFan-<tag>.dmg` / `.zip`，构建也会接受。这些都没有就中止部署，不会用过期版本替换网站。Release 事件始终检出 main，避免旧版本标签覆盖官网源码。
 - `release.json` 仍是本地离线预览快照，继续指向旧的 MacFan `v1.1.2`，等决定替换后再改。线上构建用最新 API 数据覆盖输入。不要把 API token 写入该文件。
-- 隐私政策是 `privacy.html`，发布后的地址是 <https://badpx.github.io/MacFan/privacy.html>。简体中文用 `?lang=zh-Hans`，其余语言显示英文。页脚的「隐私」链接写在全部 11 种语言里。
+- 隐私政策是 `privacy.html`，发布后的地址是 <https://badpx.github.io/MacFan/privacy.html>。英文在这个地址本身，其余 10 种语言用 `?lang=`（与各语言首页页脚的链接相同）。11 种语言都有正文，不再回退英文。页脚的「隐私」链接写在全部 11 种语言里。
 
 ## 本地预览
 
