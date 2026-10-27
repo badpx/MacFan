@@ -130,14 +130,16 @@ export APPLE_DISTRIBUTION_IDENTITY="Apple Distribution: 名字 (TEAMID)"
 export MAC_INSTALLER_DISTRIBUTION_IDENTITY="Mac Installer Distribution: 名字 (TEAMID)"
 export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MenuGauge_Mac_AppStore.provisionprofile"
 export MACFAN_VERSION="1.0"
-export MACFAN_BUILD="4"
+export MACFAN_BUILD="2"
 bash Scripts/build.sh appstore
 ```
+
+`1.0` 的构建号 `1` 已经被 App Store Connect 拒绝（ITMS-90236，缺少 512pt @2x 图标）。下一次上传必须用 `--build 2`（或 `MACFAN_BUILD=2`），不要再传 `1`。
 
 ### 脚本做的事
 
 1. 在 `build/spm-mas` 里以 `-DMAS` 编译两个架构并 `lipo`。两个切片都不得引用 `_IOServiceOpen`，二进制里不得有 `AppleSMC` 或 `IOHIDEventSystemClientCreate`。
-2. 组装 `build/MenuGauge-MAS.app`（图标与隐私清单和 DMG 版相同），写入版本号。
+2. 组装 `build/MenuGauge-MAS.app`，写入版本号。DMG 仍只编译 `MenuGaugeFlat.icon`（回退位图关闭，macOS 13–15 继续用 ICNS）。App Store 包在同一个 `.icon` 前面再交给 `actool` 一套位图 `MenuGaugeFlat.appiconset`（16、32、128、256、512 的 @1x/@2x，其中 512@2x 是 1024px），并用 `--include-all-app-icons` 写进 `Assets.car`。编译后若没有名为 `MenuGaugeFlat`、Scale 为 2、像素为 1024 的 Icon Image，脚本直接失败。`CFBundleIconName` 与 `CFBundleIconFile` 都是 `MenuGaugeFlat`。
 3. 把描述文件放到 `Contents/embedded.provisionprofile`，再签名。签名在拷贝描述文件之后，这样签名覆盖它。
 4. `codesign --options runtime --timestamp --generate-entitlement-der`，身份是 Apple Distribution。签名前确认 entitlements 里沙盒为 true。然后 `codesign --verify --strict`，并用 `codesign -d --entitlements :-` 确认签进 app 的沙盒为 true。
 5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`。requirements 里的最低系统版本来自 Info.plist 的 `LSMinimumSystemVersion`（13.0），架构包含 `arm64` 和 `x86_64`（避免安装器只在 Rosetta 下评估）。
@@ -203,6 +205,7 @@ xcrun altool --upload-package MenuGauge-v1.0.pkg -t osx \
 3. `bash Scripts/build.sh dmg`（用上面的身份和公证变量）。`codesign -dv --verbose=4 build/MenuGauge.app` 应显示 Developer ID、runtime、timestamp。公证和 `stapler validate` 由脚本执行，失败即非零退出。打开 dmg，把 app 拖进「应用程序」，Gatekeeper 不应再要求右键打开。SMC 读数应与 ad-hoc 包一致。
 4. `bash Scripts/build.sh appstore`（用描述文件和两个 Distribution 身份）。确认：
    - `codesign -d --entitlements :- build/MenuGauge-MAS.app` 含沙盒，且 application-identifier / team id 与描述文件一致。
+   - `xcrun assetutil --info build/MenuGauge-MAS.app/Contents/Resources/Assets.car` 里有一条 `AssetType` 为 `Icon Image`、`Name` 为 `MenuGaugeFlat`、`Scale` 为 2、`PixelWidth` 和 `PixelHeight` 为 1024 的记录。1024 且 `Scale` 为 1 的是 Icon Composer 图层，不算。`CFBundleIconName` 和 `CFBundleIconFile` 都打印为 `MenuGaugeFlat`。DMG 的 `build/MenuGauge.app` 不要求这条 1024 记录；macOS 26 仍用扁平 `.icon`，13–15 仍用 ICNS。
    - 弹出面板温度是热状态而不是 °C，没有风扇一行，设置里也没有风扇开关。
    - CPU、内存、磁盘、网速仍有数。GPU 若变成 `--`，那是沙盒挡住了注册表，保持这样，不要加 IOKit 例外。
    - 开机自启动在沙盒里仍能注册，或把系统返回的错误显示出来。
@@ -344,14 +347,16 @@ export APPLE_DISTRIBUTION_IDENTITY="Apple Distribution: Name (TEAMID)"
 export MAC_INSTALLER_DISTRIBUTION_IDENTITY="Mac Installer Distribution: Name (TEAMID)"
 export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MenuGauge_Mac_AppStore.provisionprofile"
 export MACFAN_VERSION="1.0"
-export MACFAN_BUILD="4"
+export MACFAN_BUILD="2"
 bash Scripts/build.sh appstore
 ```
+
+Build `1` of version `1.0` was already rejected by App Store Connect (ITMS-90236, missing the 512pt @2x icon). The next upload must use `--build 2` (or `MACFAN_BUILD=2`). Do not upload build `1` again.
 
 ### What the script does
 
 1. Compiles both architectures with `-DMAS` into `build/spm-mas` and runs `lipo`. Neither slice may reference `_IOServiceOpen`, and the binary must not contain `AppleSMC` or `IOHIDEventSystemClientCreate`.
-2. Assembles `build/MenuGauge-MAS.app` (same icon and privacy manifest as the DMG) and writes the version.
+2. Assembles `build/MenuGauge-MAS.app` and writes the version. The DMG still compiles only `MenuGaugeFlat.icon` (bitmap fallbacks stay off, so macOS 13–15 keep the ICNS). The App Store bundle also passes a `MenuGaugeFlat.appiconset` in front of that `.icon`: 16, 32, 128, 256 and 512 at @1x and @2x, with 512@2x at 1024px. `--include-all-app-icons` keeps those bitmaps in `Assets.car`. The build fails if `assetutil` does not list an Icon Image named `MenuGaugeFlat` at scale 2 and 1024 pixels. `CFBundleIconName` and `CFBundleIconFile` are both `MenuGaugeFlat`.
 3. Copies the profile to `Contents/embedded.provisionprofile`, then signs. The profile is inside the bundle before signing so the signature covers it.
 4. `codesign --options runtime --timestamp --generate-entitlement-der` with the Apple Distribution identity. The entitlements passed to codesign must already have sandbox true. Then `codesign --verify --strict`, and `codesign -d --entitlements :-` must show sandbox true on the signed app.
 5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`. The requirements plist takes the minimum OS from `LSMinimumSystemVersion` (13.0) and lists `arm64` and `x86_64`, so the installer is not evaluated only under Rosetta.
@@ -417,6 +422,7 @@ This change was written on Linux, so the Swift toolchain did not run. Before rel
 3. `bash Scripts/build.sh dmg` with the identity and notarization variables above. `codesign -dv --verbose=4 build/MenuGauge.app` should show Developer ID, the hardened runtime and a timestamp. Notarization and `stapler validate` run inside the script and fail the build on error. Open the dmg, drag the app to Applications, and confirm Gatekeeper does not ask for a right-click Open. SMC readings should match the ad-hoc app.
 4. `bash Scripts/build.sh appstore` with the profile and both distribution identities. Confirm:
    - `codesign -d --entitlements :- build/MenuGauge-MAS.app` contains the sandbox, and the application identifier and team id match the profile.
+   - `xcrun assetutil --info build/MenuGauge-MAS.app/Contents/Resources/Assets.car` includes an `Icon Image` named `MenuGaugeFlat` with `Scale` 2 and `PixelWidth` / `PixelHeight` 1024. A 1024px image at `Scale` 1 is the Icon Composer layer and does not count. `CFBundleIconName` and `CFBundleIconFile` both print `MenuGaugeFlat`. The DMG's `build/MenuGauge.app` does not need that 1024 rendition; macOS 26 still uses the flat `.icon`, and 13–15 still use the ICNS.
    - The temperature figure is a thermal state, not °C. There is no fan row and no fan switch in Settings.
    - CPU, memory, disk and network still produce numbers. If GPU becomes `--`, the sandbox hid the registry entry; leave it that way and do not add an IOKit exception.
    - Launch at login still registers inside the sandbox, or the panel shows the error the system returned.

@@ -9,7 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.badpx.macfan</string>
 	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
+	<string>MenuGaugeFlat</string>
+	<key>CFBundleIconName</key>
+	<string>MenuGaugeFlat</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleLocalizations</key>

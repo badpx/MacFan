@@ -2,6 +2,7 @@ import AppKit
 
 // MenuGauge app icon. Keep these in sync with Scripts/render_icon.py.
 // Usage: swift Scripts/generate_icon.swift [build/AppIcon.iconset]
+//        swift Scripts/generate_icon.swift <dir> --iconset-only
 //        iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 // Every size is drawn from the vector gauge, not from a scaled 1024 PNG.
 //
@@ -24,8 +25,10 @@ let needleBaseWidth: CGFloat = 44
 let needleTipWidth: CGFloat = 12
 let hubRadiusDesign: CGFloat = 40
 
-let directory = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "build/AppIcon.iconset",
-                    isDirectory: true)
+let args = Array(CommandLine.arguments.dropFirst())
+let iconsetOnly = args.contains("--iconset-only")
+let directoryPath = args.first { !$0.hasPrefix("-") } ?? "build/AppIcon.iconset"
+let directory = URL(fileURLWithPath: directoryPath, isDirectory: true)
 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
 func color(_ hex: Int) -> NSColor {
@@ -253,6 +256,10 @@ let sizes: [(String, Int)] = [
 ]
 for (name, pixels) in sizes {
     try render(pixelSize: pixels).write(to: directory.appendingPathComponent(name))
+}
+if iconsetOnly {
+    print("Iconset: \(directory.path)")
+    exit(0)
 }
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 try render(pixelSize: 1024).write(to: root.appendingPathComponent("Design/MacFan-UI/MenuGauge-AppIcon.png"))
