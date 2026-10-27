@@ -451,7 +451,7 @@ sign_developer_id() {
 prepare_mas_entitlements() {
   local team="${APPLE_TEAM_ID:-}"
   local profile_src="${MACFAN_PROVISIONING_PROFILE:-}"
-  local profile decoded app_id profile_team sandbox
+  local profile decoded app_id profile_team
   if [[ -z "$team" ]]; then
     die "set APPLE_TEAM_ID or pass --team-id (10-character Team ID)"
   fi
@@ -467,10 +467,8 @@ prepare_mas_entitlements() {
   /usr/bin/security cms -D -i "$profile" > "$decoded"
   app_id=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$decoded" 2>/dev/null || true)
   profile_team=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.team-identifier' "$decoded" 2>/dev/null || true)
-  sandbox=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.app-sandbox' "$decoded" 2>/dev/null || true)
-  if [[ "$sandbox" != "true" ]]; then
-    die "provisioning profile is missing com.apple.security.app-sandbox = true"
-  fi
+  # App Store distribution profiles do not list app-sandbox. Sandbox is
+  # applied from the signing entitlements, then checked on the signed app.
   if [[ "$profile_team" != "$team" ]]; then
     die "profile team-identifier ($profile_team) does not match APPLE_TEAM_ID ($team)"
   fi
@@ -490,6 +488,11 @@ prepare_mas_entitlements() {
   /usr/libexec/PlistBuddy -c "Set :com.apple.application-identifier $team.$BUNDLE_ID" "$ENTITLEMENTS"
   /usr/libexec/PlistBuddy -c "Set :com.apple.developer.team-identifier $team" "$ENTITLEMENTS"
   plutil -lint "$ENTITLEMENTS" >/dev/null
+  local sandbox
+  sandbox=$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.app-sandbox' "$ENTITLEMENTS" 2>/dev/null || true)
+  if [[ "$sandbox" != "true" ]]; then
+    die "Resources/MacFan-MAS.entitlements must set com.apple.security.app-sandbox to true"
+  fi
   cp "$profile" "$APP_DIR/Contents/embedded.provisionprofile"
 }
 
