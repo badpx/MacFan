@@ -93,6 +93,9 @@ enum StatusGaugeImage {
         let outer: CGFloat = 8.4
         let band: CGFloat = 2.6
         let hub = CGPoint(x: rect.midX, y: rect.minY + 4.4)
+        // Round caps are semicircles of radius lineWidth/2, the same end shape
+        // as the app icon. At 18pt the icon's hollow outline (about 1/4 of the
+        // band) is under a pixel, so an empty segment stays one stroke.
         let spans = StatusGauge.segmentSpans()
         for (index, span) in spans.enumerated() {
             let path = NSBezierPath()

@@ -18,11 +18,17 @@ TILE_SIDE = 832
 TILE_RADIUS = 186
 TEAL = (0x12, 0x90, 0x7A)
 DEEP = (0x05, 0x50, 0x5C)
+# Padded 1024 canvas. Full-bleed artwork scales these with the tile.
 ARC_START = 190.0
-ARC_SWEEP = 200.0
-TOP_GAP = 18.0
-NEEDLE_DEGREES = 37.0
-GLYPH_WIDTH_RATIO = 0.63
+ARC_END = -10.0
+OUTER_RADIUS = 310.0
+BAND = 100.0
+OUTLINE = 23.0
+SEGMENT_GAP = 26.0
+NEEDLE_DEGREES = 38.0
+NEEDLE_BASE = 44.0
+NEEDLE_TIP = 12.0
+HUB_RADIUS = 40.0
 
 ICONSET = [
     ("icon_16x16.png", 16),
@@ -51,25 +57,6 @@ ICNS_TYPES = [
 ]
 
 
-def band_ratio(pixel_size):
-    if pixel_size <= 16:
-        return 0.40
-    if pixel_size <= 32:
-        return 0.34
-    if pixel_size <= 64:
-        return 0.28
-    return 0.23
-
-
-def pil_angle(math_degrees):
-    return (-math_degrees) % 360.0
-
-
-def lerp_color(t):
-    t = float(np.clip(t, 0, 1))
-    return tuple(round(a + (b - a) * t) for a, b in zip(TEAL, DEEP))
-
-
 def rounded_mask(size, full_bleed):
     mask = Image.new("L", (size, size), 0)
     draw = ImageDraw.Draw(mask)
@@ -92,85 +79,167 @@ def gradient(size):
     return Image.fromarray(rgb.astype(np.uint8), "RGB")
 
 
-def draw_arc(draw, center, radius, math_start, math_end, width, fill):
-    """Clockwise math arc. PIL angles increase clockwise from east."""
-    box = [center[0] - radius, center[1] - radius, center[0] + radius, center[1] + radius]
-    draw.arc(box, start=pil_angle(math_start), end=pil_angle(math_end), fill=fill, width=max(1, round(width)))
+def xy(radius, deg):
+    """Image point relative to the hub. 0° is east, positive is counterclockwise."""
+    rad = math.radians(deg)
+    return (radius * math.cos(rad), -radius * math.sin(rad))
 
 
-def endpoint(center, radius, math_degrees):
-    radians = math.radians(math_degrees)
-    return (center[0] + radius * math.cos(radians), center[1] - radius * math.sin(radians))
+def add(p, q):
+    return (p[0] + q[0], p[1] + q[1])
 
 
-def cap(draw, center, radius, math_degrees, width, fill):
-    point = endpoint(center, radius, math_degrees)
-    r = width / 2
-    draw.ellipse([point[0] - r, point[1] - r, point[0] + r, point[1] + r], fill=fill)
+def half_gap_degrees(mid_r, cap_r, gap):
+    """Angle from vertical to each cap center so the rounded ends are `gap` apart."""
+    target = gap / 2.0
+    lo, hi = 0.0, math.pi / 2.5
+    for _ in range(48):
+        mid = (lo + hi) / 2.0
+        opening = mid_r * math.sin(mid) - cap_r * math.cos(mid)
+        if opening < target:
+            lo = mid
+        else:
+            hi = mid
+    return math.degrees((lo + hi) / 2.0)
+
+
+def arc_points(radius, start, end, steps):
+    span = (start - end) % 360.0
+    return [xy(radius, start - span * i / steps) for i in range(steps + 1)]
+
+
+def cap_points(mid_r, cap_r, deg, tangent, steps):
+    """Semicircle from the outer edge to the inner edge, bulging along `tangent`."""
+    radial = xy(1.0, deg)
+    center = xy(mid_r, deg)
+    pts = []
+    for i in range(steps + 1):
+        t = math.pi * i / steps
+        pts.append((
+            center[0] + cap_r * (math.cos(t) * radial[0] + math.sin(t) * tangent[0]),
+            center[1] + cap_r * (math.cos(t) * radial[1] + math.sin(t) * tangent[1]),
+        ))
+    return pts
+
+
+def tangent_cw(deg):
+    rad = math.radians(deg)
+    return (math.sin(rad), math.cos(rad))
+
+
+def tangent_ccw(deg):
+    rad = math.radians(deg)
+    return (-math.sin(rad), -math.cos(rad))
+
+
+def annular_sector(outer, inner, start, end):
+    """Closed annular sector. `start` sweeps clockwise to `end`. Caps are semicircles."""
+    span = (start - end) % 360.0
+    arc_steps = max(12, int(math.ceil(span * 2)))
+    cap_steps = 24
+    mid = (outer + inner) / 2.0
+    cap = (outer - inner) / 2.0
+    pts = arc_points(outer, start, end, arc_steps)
+    pts.extend(cap_points(mid, cap, end, tangent_cw(end), cap_steps)[1:])
+    inner_arc = list(reversed(arc_points(inner, start, end, arc_steps)))
+    pts.extend(inner_arc[1:])
+    # Start cap runs from the inner edge back to the outer edge.
+    start_cap = list(reversed(cap_points(mid, cap, start, tangent_ccw(start), cap_steps)))
+    pts.extend(start_cap[1:-1])
+    return pts
+
+
+def needle_polygon(length, base, tip):
+    """Tapered wedge with a semicircular tip. Hub at the origin, image y down."""
+    tip_r = tip / 2.0
+    reach = max(tip_r + 0.5, length - tip_r)
+    rad = math.radians(NEEDLE_DEGREES)
+    direction = (math.cos(rad), -math.sin(rad))
+    normal = (math.sin(rad), math.cos(rad))
+    tip_center = (direction[0] * reach, direction[1] * reach)
+    steps = 16
+    pts = [(normal[0] * base / 2.0, normal[1] * base / 2.0)]
+    # +normal is at needleDegrees-90; the semicircle passes through the tip.
+    for i in range(steps + 1):
+        a = math.radians(NEEDLE_DEGREES - 90 + 180.0 * i / steps)
+        pts.append((tip_center[0] + tip_r * math.cos(a), tip_center[1] - tip_r * math.sin(a)))
+    pts.append((-normal[0] * base / 2.0, -normal[1] * base / 2.0))
+    return pts
+
+
+def glyph_geometry(pixel_size, unit):
+    """Sizes in the image being drawn. `unit` is pixels per padded-1024 design pixel."""
+    outer = OUTER_RADIUS * unit
+    band = BAND * unit
+    stroke = OUTLINE * unit
+    gap = SEGMENT_GAP * unit
+    hub_r = HUB_RADIUS * unit
+    base = NEEDLE_BASE * unit
+    tip = NEEDLE_TIP * unit
+    # Below 64px a proportional stroke disappears. Thicken just enough to keep
+    # a hollow slot and a readable hub; the 1024 drawing stays on the spec.
+    if pixel_size <= 16:
+        band = max(band, 3.15 * unit * CANVAS / pixel_size)
+        stroke = max(stroke, 1.15 * unit * CANVAS / pixel_size)
+        hub_r = max(hub_r, 1.45 * unit * CANVAS / pixel_size)
+        base = max(base, 1.9 * unit * CANVAS / pixel_size)
+        tip = max(tip, 1.05 * unit * CANVAS / pixel_size)
+        gap = max(gap, 1.05 * unit * CANVAS / pixel_size)
+    elif pixel_size <= 32:
+        band = max(band, 5.2 * unit * CANVAS / pixel_size)
+        stroke = max(stroke, 1.7 * unit * CANVAS / pixel_size)
+        hub_r = max(hub_r, 2.4 * unit * CANVAS / pixel_size)
+        base = max(base, 3.1 * unit * CANVAS / pixel_size)
+        tip = max(tip, 1.35 * unit * CANVAS / pixel_size)
+        gap = max(gap, 1.7 * unit * CANVAS / pixel_size)
+    band = min(band, outer * 0.72)
+    stroke = min(stroke, band * 0.38)
+    if band - 2 * stroke < stroke * 0.45:
+        stroke = band / 3.0
+    inner = outer - band
+    return outer, inner, band, stroke, gap, hub_r, base, tip
 
 
 def draw_glyph(image, pixel_size, full_bleed=False):
-    # Full-bleed artwork is the tile itself, scaled up to the canvas.
-    # The padded icon keeps the 96pt margin, so the glyph stays 63% of the tile.
+    # `unit` converts a padded-1024 design pixel into pixels of this bitmap.
+    # Full-bleed artwork is the tile with the margin scaled away.
+    unit = image.size[0] / CANVAS
     if full_bleed:
-        tile = float(image.size[0])
-    else:
-        tile = TILE_SIDE * image.size[0] / CANVAS
-    outer = GLYPH_WIDTH_RATIO * tile / 2
-    ratio = band_ratio(pixel_size)
-    band = max(2.0 * image.size[0] / pixel_size, outer * ratio)
-    # Keep the band inside the outer radius.
-    band = min(band, outer * 0.55)
-    center_r = outer - band / 2
-    gap = TOP_GAP
-    if pixel_size <= 32:
-        gap = 14
-    left_end = 90 + gap / 2
-    right_start = 90 - gap / 2
-    arc_end = ARC_START - ARC_SWEEP
-    # Bounding box of the semicircle plus the small dip below the hub.
-    dip = outer * math.sin(math.radians(ARC_START - 180))
-    top = outer
-    bottom = -max(dip, band * 0.35)
-    visual_center_offset = (top + bottom) / 2
-    hub = (
-        image.size[0] / 2,
-        image.size[1] / 2 + visual_center_offset,
+        unit *= CANVAS / TILE_SIDE
+    outer, inner, band, stroke, gap, hub_r, base, tip = glyph_geometry(pixel_size, unit)
+    mid = (outer + inner) / 2.0
+    cap = band / 2.0
+    beta = half_gap_degrees(mid, cap, gap)
+    left_end = 90.0 + beta
+    right_start = 90.0 - beta
+    sectors = [
+        annular_sector(outer, inner, ARC_START, left_end),
+        annular_sector(outer - stroke, inner + stroke, right_start, ARC_END),
+        annular_sector(outer, inner, right_start, ARC_END),
+    ]
+    length = max(inner * 0.45, inner - 30.0 * unit)
+    parts = sectors + [needle_polygon(length, base, tip)]
+    xs = [p[0] for part in parts for p in part] + [-hub_r, hub_r]
+    ys = [p[1] for part in parts for p in part] + [-hub_r, hub_r]
+    shift = (
+        image.size[0] / 2.0 - (min(xs) + max(xs)) / 2.0,
+        image.size[1] / 2.0 - (min(ys) + max(ys)) / 2.0,
     )
-    white = (255, 255, 255, 255)
-    outline_width = max(image.size[0] / pixel_size * (2.2 if pixel_size <= 32 else 1.6), band * 0.16)
-    draw = ImageDraw.Draw(image)
-
-    if pixel_size <= 32:
-        draw_arc(draw, hub, center_r, right_start, arc_end, outline_width, white)
-        cap(draw, hub, center_r, right_start, outline_width, white)
-        cap(draw, hub, center_r, arc_end, outline_width, white)
-    else:
-        inner = outer - band
-        draw_arc(draw, hub, outer - outline_width / 2, right_start, arc_end, outline_width, white)
-        draw_arc(draw, hub, inner + outline_width / 2, right_start, arc_end, outline_width, white)
-        for radius in (outer - outline_width / 2, inner + outline_width / 2):
-            cap(draw, hub, radius, right_start, outline_width, white)
-            cap(draw, hub, radius, arc_end, outline_width, white)
-
-    draw_arc(draw, hub, center_r, ARC_START, left_end, band, white)
-    cap(draw, hub, center_r, ARC_START, band, white)
-    cap(draw, hub, center_r, left_end, band, white)
-
-    inner_clear = outer - band
-    length = inner_clear * 0.9
-    base = band * (0.62 if pixel_size <= 32 else 0.48)
-    radians = math.radians(NEEDLE_DEGREES)
-    direction = (math.cos(radians), -math.sin(radians))
-    normal = (math.sin(radians), math.cos(radians))
-    tip = (hub[0] + direction[0] * length, hub[1] + direction[1] * length)
-    tail = band * 0.15
-    back = (hub[0] - direction[0] * tail, hub[1] - direction[1] * tail)
-    left = (back[0] + normal[0] * base / 2, back[1] + normal[1] * base / 2)
-    right = (back[0] - normal[0] * base / 2, back[1] - normal[1] * base / 2)
-    draw.polygon([tip, left, right], fill=white)
-    hub_r = band * (0.42 if pixel_size <= 32 else 0.34)
-    draw.ellipse([hub[0] - hub_r, hub[1] - hub_r, hub[0] + hub_r, hub[1] + hub_r], fill=white)
+    mask = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.polygon([add(p, shift) for p in sectors[0]], fill=255)
+    # Outline is the same annular sector with a smaller copy punched out,
+    # so the stroke sits inside the band and the caps stay semicircles.
+    outline = Image.new("L", image.size, 0)
+    odraw = ImageDraw.Draw(outline)
+    odraw.polygon([add(p, shift) for p in sectors[2]], fill=255)
+    odraw.polygon([add(p, shift) for p in sectors[1]], fill=0)
+    mask = Image.fromarray(np.maximum(np.array(mask), np.array(outline)))
+    ndraw = ImageDraw.Draw(mask)
+    ndraw.polygon([add(p, shift) for p in needle_polygon(length, base, tip)], fill=255)
+    ndraw.ellipse([shift[0] - hub_r, shift[1] - hub_r, shift[0] + hub_r, shift[1] + hub_r], fill=255)
+    white = Image.new("RGBA", image.size, (255, 255, 255, 255))
+    image.paste(white, mask=mask)
 
 
 def render(pixel_size, full_bleed=False):
