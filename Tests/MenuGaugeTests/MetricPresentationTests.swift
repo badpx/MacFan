@@ -3,6 +3,7 @@ import AppKit
 @testable import MenuGauge
 
 final class MetricPresentationTests: XCTestCase {
+    #if !MAS
     func testAverageIncludesStoppedFansAndRequiresEverySensor() {
         XCTAssertEqual(FanMonitor.average([1800, 2200]), 2000)
         XCTAssertEqual(FanMonitor.average([0, 2000]), 1000)
@@ -13,17 +14,44 @@ final class MetricPresentationTests: XCTestCase {
         XCTAssertNil(FanMonitor.average([.nan, 2000]))
         XCTAssertNil(FanMonitor.average([-1, 2000]))
     }
+    #endif
 
-    func testAppStoreFanReadingHasNoRPM() {
-        let reading = FanMonitor.thermalReading(level: .fair)
-        guard case .thermal(.fair) = reading.value else {
-            return XCTFail("Expected a thermal-state reading")
-        }
-        XCTAssertEqual(reading.compact?.top, "WARM")
-        XCTAssertEqual(reading.compact?.bottom, "FAN")
-        XCTAssertEqual(reading.heat, 0.35)
-        XCTAssertNil(reading.value?.scalar)
-        XCTAssertFalse(reading.menu.contains("RPM"))
+    func testAppStoreEditionOmitsTheFanMetric() {
+        let store = MetricCatalog.makeProviders(appStore: true).map(\.id)
+        XCTAssertEqual(store, ["cpu", "gpu", "memory", "disk", "temperature", "network"])
+        XCTAssertFalse(store.contains(MetricCatalog.fanID))
+        XCTAssertFalse(MetricCatalog.offeredDescriptors(appStore: true).contains { $0.id == MetricCatalog.fanID })
+
+        #if !MAS
+        let direct = MetricCatalog.makeProviders(appStore: false).map(\.id)
+        XCTAssertEqual(direct, ["cpu", "gpu", "memory", "disk", "temperature", "fan", "network"])
+        XCTAssertTrue(MetricCatalog.offeredDescriptors(appStore: false).contains { $0.id == MetricCatalog.fanID })
+        #endif
+    }
+
+    func testAppStoreSelectionDropsASavedFanMetric() {
+        let saved = ["cpu", "fan", "memory", "fan"]
+        XCTAssertEqual(MetricCatalog.sanitizedSelection(saved, appStore: true), ["cpu", "memory"])
+        XCTAssertEqual(MetricCatalog.sanitizedSelection(saved, appStore: false), saved)
+        XCTAssertEqual(MetricCatalog.sanitizedSelection([], appStore: true), [])
+        XCTAssertEqual(MetricCatalog.sanitizedSelection(["network"], appStore: true), ["network"])
+    }
+
+    func testChineseThermalLabelsDistinguishWarmFromHot() {
+        XCTAssertEqual(L10n.string(.thermalNominal, language: "zh-Hans"), "正常")
+        XCTAssertEqual(L10n.string(.thermalFair, language: "zh-Hans"), "偏高")
+        XCTAssertEqual(L10n.string(.thermalSerious, language: "zh-Hans"), "过热")
+        XCTAssertEqual(L10n.string(.thermalCritical, language: "zh-Hans"), "危急")
+        XCTAssertEqual(L10n.string(.thermalNominal, language: "zh-Hant"), "正常")
+        XCTAssertEqual(L10n.string(.thermalFair, language: "zh-Hant"), "偏高")
+        XCTAssertEqual(L10n.string(.thermalSerious, language: "zh-Hant"), "過熱")
+        XCTAssertEqual(L10n.string(.thermalCritical, language: "zh-Hant"), "危急")
+        XCTAssertEqual(L10n.string(.thermalFair, language: "en"), "Fair")
+        XCTAssertEqual(L10n.string(.thermalSerious, language: "en"), "Serious")
+        XCTAssertEqual(ThermalLevel.nominal.compactToken, "OK")
+        XCTAssertEqual(ThermalLevel.fair.compactToken, "WARM")
+        XCTAssertEqual(ThermalLevel.serious.compactToken, "HOT")
+        XCTAssertEqual(ThermalLevel.critical.compactToken, "MAX")
     }
 
     func testUnavailableAndZeroNetworkRatesRemainDistinct() {

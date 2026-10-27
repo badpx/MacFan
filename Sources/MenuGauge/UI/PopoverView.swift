@@ -143,8 +143,10 @@ struct PopoverView: View {
 
     private var rows: some View {
         VStack(spacing: 0) {
+            #if !MAS
             fanRow
             rowLine
+            #endif
             capacityRow(id: "memory", symbol: "memorychip",
                         word: L10n.ui(.available), showAvailable: true, decimals: 1)
             rowLine
@@ -160,19 +162,15 @@ struct PopoverView: View {
             .padding(.leading, 30)
     }
 
+    #if !MAS
     private var fanRow: some View {
-        let text: String
-        if case .thermal(let level) = model.readings["fan"]?.value {
-            text = "\(L10n.tr(.fan)) \(L10n.tr(level.labelKey))"
-        } else {
-            let rpm = model.readings["fan"]?.value?.scalar
-            let value = rpm.map { MetricFormat.number($0, decimals: 0) + " RPM" } ?? "N/A"
-            text = "\(L10n.tr(.fan)) \(value)"
-        }
+        let rpm = model.readings["fan"]?.value?.scalar
+        let value = rpm.map { MetricFormat.number($0, decimals: 0) + " RPM" } ?? "N/A"
         return row(symbol: "fan") {
-            Text(text)
+            Text("\(L10n.tr(.fan)) \(value)")
         }
     }
+    #endif
 
     private func capacityRow(id: String, symbol: String, word: String,
                              showAvailable: Bool, decimals: Int) -> some View {
@@ -228,7 +226,7 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 10) {
             heading(L10n.ui(.showInMenu), detail: String(format: L10n.ui(.selected), model.selectedIDs.count))
             VStack(spacing: 0) {
-                ForEach(MetricDescriptor.all) { metric in
+                ForEach(MetricDescriptor.offered) { metric in
                     if metric.id != "cpu" { Rectangle().fill(PanelPalette.line).frame(height: 1) }
                     HStack {
                         label(metric.title, symbol: metric.symbol)
