@@ -1,8 +1,11 @@
 import Foundation
 import ServiceManagement
 
-/// Launch-at-login management (macOS 13+). The first time the user enables
-/// it, macOS may require approval in System Settings > General > Login Items.
+/// Launch-at-login management (macOS 13+). Registration is
+/// SMAppService.mainApp and follows the bundle identifier
+/// com.badpx.macfan. System Settings shows CFBundleDisplayName
+/// (MenuGauge). The first time the user enables it, macOS may require
+/// approval in System Settings > General > Login Items.
 enum LoginItem {
 
     enum State { case enabled, disabled, requiresApproval, unavailable }

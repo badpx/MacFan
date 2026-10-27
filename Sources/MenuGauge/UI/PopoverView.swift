@@ -300,9 +300,12 @@ struct PopoverView: View {
     }
 
     private var versionText: String {
+        let bundled = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+        let product = (bundled?.isEmpty == false) ? bundled! : "MenuGauge"
         guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
-                as? String, !version.isEmpty else { return "MacFan" }
-        return "MacFan v\(version)"
+                as? String, !version.isEmpty else { return product }
+        return "\(product) v\(version)"
     }
 
     private func label(_ title: String, symbol: String) -> some View {

@@ -1,4 +1,6 @@
-# MacFan
+# MenuGauge
+
+MenuGauge 原名 MacFan。Bundle ID 仍是 `com.badpx.macfan`，GitHub 仓库与官网仍是 [badpx/MacFan](https://github.com/badpx/MacFan)、[badpx.github.io/MacFan](https://badpx.github.io/MacFan/)。
 
 macOS 菜单栏系统监控小工具：查看 CPU / GPU 占用率、系统温度、风扇平均转速、内存、磁盘、网速。Swift + AppKit / SwiftUI 原生界面，无第三方依赖，常驻后台（无 Dock 图标），使用单个 2s 定时器采样。
 
@@ -26,25 +28,25 @@ macOS 菜单栏系统监控小工具：查看 CPU / GPU 占用率、系统温度
 bash Scripts/build.sh
 ```
 
-产出 `build/MacFan.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。版本号和构建号由脚本写入，未指定时为 `1.0.0`（build `1`）。
+产出 `build/MenuGauge.app`（release 编译 arm64 + x86_64 universal binary + ad-hoc 签名，签名是开机自启动的前提）。版本号和构建号由脚本写入，未指定时为 `1.0.0`（build `1`）。
 
-这条本地包仍是 ad-hoc 签名。发给别人用的公证 DMG，以及 Mac App Store 的沙盒 pkg，见 [docs/Release.md](docs/Release.md)（中英）。ad-hoc 包通过浏览器或隔空投送下载后，首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MacFan.app`）；U 盘等本地拷贝无此提示。
+这条本地包仍是 ad-hoc 签名。发给别人用的公证 DMG，以及 Mac App Store 的沙盒 pkg，见 [docs/Release.md](docs/Release.md)（中英）。ad-hoc 包通过浏览器或隔空投送下载后，首次打开会被 Gatekeeper 拦截，右键 → 打开 确认一次即可（或 `xattr -dr com.apple.quarantine MenuGauge.app`）；U 盘等本地拷贝无此提示。
 
 App Store 版在编译期去掉 AppleSMC（风扇转速与 CPU 温度），改为显示系统热状态。直接分发的 DMG 仍读取 SMC，行为与现在一致。
 
 ## 安装
 
 ```bash
-cp -R build/MacFan.app /Applications/
-open /Applications/MacFan.app
+cp -R build/MenuGauge.app /Applications/
+open /Applications/MenuGauge.app
 ```
 
-首次开启「开机自启动」需在 系统设置 → 通用 → 登录项 中允许 MacFan。
+首次开启「开机自启动」需在 系统设置 → 通用 → 登录项 中允许 MenuGauge。登录项是 `SMAppService.mainApp`，身份是 bundle id `com.badpx.macfan`。
 
 ## 命令行冒烟测试
 
 ```bash
-swift run MacFan --smoke
+swift run MenuGauge --smoke
 # 输出示例：
 # CPU: 11.1 %
 # 温度: 51.8 °C
@@ -55,7 +57,7 @@ swift run MacFan --smoke
 
 ```bash
 swift test
-swift run MacFan --ui-snapshot build/ui-check -AppleLanguages '(zh-Hans)'
+swift run MenuGauge --ui-snapshot build/ui-check -AppleLanguages '(zh-Hans)'
 ```
 
 快照模式仅包含在 debug 构建中，使用固定示例数据生成浅色、深色、设置页、告警、不可用和小屏状态图片，不读取传感器、不改写指标选择或开机自启动。实际应用仅在面板打开时向 SwiftUI 发布采样结果；菜单栏继续使用单视图绘制。
@@ -76,7 +78,7 @@ bash Scripts/build.sh
 
 ```bash
 # 先在菜单中关闭「开机自启动」，然后：
-rm -rf /Applications/MacFan.app
+rm -rf /Applications/MenuGauge.app
 ```
 
 ## 扩展

@@ -1,12 +1,14 @@
-# 发布 MacFan
+# 发布 MenuGauge
+
+显示名称是 **MenuGauge**（原名 MacFan），网站 DMG 和 Mac App Store 都用这个名字。Bundle ID 仍是 `com.badpx.macfan`。GitHub 仓库与 Pages 地址不变。App Store Connect 记录已经建好：名称 MenuGauge，App ID `6827516123`，SKU `menu_gauge`，主语言 English (U.S.)。
 
 两种发行物都由 `Scripts/build.sh` 完成：SwiftPM 编译，再手工组装 `.app`。仓库里没有 `.xcodeproj` / `.xcworkspace`，也不要加。
 
 | 命令 | 给谁用 | 产物 |
 | --- | --- | --- |
-| `bash Scripts/build.sh` | 自己本机安装 | `build/MacFan.app`，ad-hoc 签名 |
-| `bash Scripts/build.sh dmg` | 网站 / GitHub Release | `build/MacFan-v<版本>.dmg`，Developer ID + 公证 + 装订 |
-| `bash Scripts/build.sh appstore` | Mac App Store | `build/MacFan-v<版本>.pkg`，沙盒 |
+| `bash Scripts/build.sh` | 自己本机安装 | `build/MenuGauge.app`，ad-hoc 签名 |
+| `bash Scripts/build.sh dmg` | 网站 / GitHub Release | `build/MenuGauge-v<版本>.dmg`，Developer ID + 公证 + 装订 |
+| `bash Scripts/build.sh appstore` | Mac App Store | `build/MenuGauge-v<版本>.pkg`，沙盒 |
 
 `bash Scripts/build.sh --help` 列出全部参数。身份、Team ID、描述文件、版本和公证凭据只来自环境变量或参数，仓库里不写死。`.p8` 和 `.provisionprofile` 已被 gitignore，不要提交。
 
@@ -41,7 +43,7 @@
    三项都设置时脚本用 API 密钥，不再看 profile。只用 profile 时不要导出 `NOTARY_KEY_PATH` / `NOTARY_KEY_ID` / `NOTARY_ISSUER`。
 
    ```bash
-   xcrun notarytool store-credentials "MacFan-Notary" \
+   xcrun notarytool store-credentials "MenuGauge-Notary" \
      --key "$NOTARY_KEY_PATH" \
      --key-id "$NOTARY_KEY_ID" \
      --issuer "$NOTARY_ISSUER"
@@ -65,7 +67,7 @@ bash Scripts/build.sh dmg
 
 ```bash
 export DEVELOPER_ID_APPLICATION="Developer ID Application: 名字 (TEAMID)"
-export NOTARY_KEYCHAIN_PROFILE="MacFan-Notary"
+export NOTARY_KEYCHAIN_PROFILE="MenuGauge-Notary"
 export MACFAN_VERSION="1.2.3"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh dmg
@@ -77,10 +79,10 @@ bash Scripts/build.sh dmg
 2. `lipo` 成通用二进制，并确认两个切片都引用了 `_IOServiceOpen`、二进制里有 `AppleSMC` 字面量，且没有私有的 `IOHIDEventSystemClientCreate`。
 3. 组装 `.app`：`actool` 编译 `Resources/MacFanFlat.icon`（macOS 26 的扁平图标；macOS 13–15 仍用 ICNS）、拷贝菜单栏眼睛图标和 `PrivacyInfo.xcprivacy`、写入版本号。
 4. 用 Developer ID Application 签名，`--options runtime --timestamp`。没有沙盒，也没有额外 entitlements。
-5. 做 UDZO 磁盘映像，卷内是 `MacFan.app` 和指向 `/Applications` 的替身，再用同一身份给 dmg 签名。
+5. 做 UDZO 磁盘映像，卷名是 MenuGauge，卷内是 `MenuGauge.app` 和指向 `/Applications` 的替身，再用同一身份给 dmg 签名。
 6. `xcrun notarytool submit --wait`，然后 `xcrun stapler staple` 与 `stapler validate`。
 
-产物：`build/MacFan-v1.2.3.dmg`。GitHub Release 的标签必须是 `v1.2.3`，附件名必须是 `MacFan-v1.2.3.dmg`。官网优先用这个文件；没有 dmg 时才用同名 zip（现有旧版）。
+产物：`build/MenuGauge-v1.2.3.dmg`。GitHub Release 的标签必须是 `v1.2.3`，附件名必须是 `MenuGauge-v1.2.3.dmg`。官网优先用这个文件，其次同名 zip。更早的 Release 若仍是 `MacFan-v<版本>.dmg` 或 `.zip`，官网也会接受，避免当前线上版本把站点构建弄挂。
 
 装订打在 dmg 上。用户把 app 拖进「应用程序」后，Gatekeeper 用 Apple 保存的票据在线校验；离线首次打开仍建议机器曾经联网完成过公证检查。
 
@@ -93,11 +95,11 @@ bash Scripts/build.sh dmg
 - 弹出面板的大号温度位显示本地化的热状态（正常 / 一般 / 严重 / 危急，以及其余语言），标题改为「热状态」，不再显示 °C。
 - 风扇一行显示同一个热状态，不显示 RPM。
 - 菜单栏用固定短词 `OK` / `WARM` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`，风扇在下标 `FAN`。
-- `MacFan --fandump` 在这个二进制里直接退出。
+- `MenuGauge --fandump` 在这个二进制里直接退出。
 
 CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccelerator` 的公开注册表属性，不 `IOServiceOpen`。沙盒里如果读不到，界面本来就会显示 `--`，不要为此加临时例外。
 
-未使用的 `Sources/MacFan/System/HIDSensors.swift` 已删除。它用 `dlsym` 找私有的 `IOHIDEventSystemClient*`，两个发行物都不能带。
+未使用的 `Sources/MenuGauge/System/HIDSensors.swift` 已删除。它用 `dlsym` 找私有的 `IOHIDEventSystemClient*`，两个发行物都不能带。
 
 ### 准备
 
@@ -109,7 +111,7 @@ CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccele
    ```
 
 2. Team ID，10 位，`APPLE_TEAM_ID` 或 `--team-id`。
-3. App Store Connect 里的 macOS App，bundle id 与 `MACFAN_BUNDLE_ID` 一致。App ID 打开 App Sandbox，不要打开 IOKit user client。
+3. App Store Connect 里已有的 macOS App「MenuGauge」（App ID `6827516123`，SKU `menu_gauge`，主语言 English (U.S.)）。bundle id 与 `MACFAN_BUNDLE_ID` 一致，不要新建另一条记录。App ID 打开 App Sandbox，不要打开 IOKit user client。
 4. 对应的 Mac App Store **Distribution** 描述文件。脚本会解码它，核对 `com.apple.application-identifier` 等于 `TEAMID.bundleid`、team id 一致、沙盒为 true，并拒绝带 `iokit-user-client-class` 的描述文件。
 
 签名用的 entitlements 只有这三项（`Resources/MacFan-MAS.entitlements`，Team ID 和 bundle id 由脚本填入）：
@@ -126,7 +128,7 @@ CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccele
 export APPLE_TEAM_ID="TEAMID"
 export APPLE_DISTRIBUTION_IDENTITY="Apple Distribution: 名字 (TEAMID)"
 export MAC_INSTALLER_DISTRIBUTION_IDENTITY="Mac Installer Distribution: 名字 (TEAMID)"
-export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MacFan_Mac_AppStore.provisionprofile"
+export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MenuGauge_Mac_AppStore.provisionprofile"
 export MACFAN_VERSION="1.2.3"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh appstore
@@ -135,13 +137,13 @@ bash Scripts/build.sh appstore
 ### 脚本做的事
 
 1. 在 `build/spm-mas` 里以 `-DMAS` 编译两个架构并 `lipo`。两个切片都不得引用 `_IOServiceOpen`，二进制里不得有 `AppleSMC` 或 `IOHIDEventSystemClientCreate`。
-2. 组装 `build/MacFan-MAS.app`（图标与隐私清单和 DMG 版相同），写入版本号。
+2. 组装 `build/MenuGauge-MAS.app`（图标与隐私清单和 DMG 版相同），写入版本号。
 3. 把描述文件放到 `Contents/embedded.provisionprofile`，再签名。签名在拷贝描述文件之后，这样签名覆盖它。
 4. `codesign --options runtime --timestamp --generate-entitlement-der`，身份是 Apple Distribution。然后 `codesign --verify --strict`，并确认签名里的沙盒 entitlement 为 true。
-5. `productbuild --component build/MacFan-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`。requirements 里的最低系统版本来自 Info.plist 的 `LSMinimumSystemVersion`（13.0），架构包含 `arm64` 和 `x86_64`（避免安装器只在 Rosetta 下评估）。
+5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`。requirements 里的最低系统版本来自 Info.plist 的 `LSMinimumSystemVersion`（13.0），架构包含 `arm64` 和 `x86_64`（避免安装器只在 Rosetta 下评估）。
 6. `pkgutil --check-signature`。
 
-产物：`build/MacFan-v1.2.3.pkg` 和 `build/MacFan-MAS.app`。本地 ad-hoc / DMG 用的是 `build/MacFan.app`，两条命令不会互相覆盖 app 包。
+产物：`build/MenuGauge-v1.2.3.pkg` 和 `build/MenuGauge-MAS.app`。本地 ad-hoc / DMG 用的是 `build/MenuGauge.app`，两条命令不会互相覆盖 app 包。
 
 ### 上传（默认关闭）
 
@@ -160,7 +162,7 @@ bash Scripts/build.sh appstore --upload
 脚本把 `.p8` 复制到临时目录并命名为 `AuthKey_<id>.p8`，通过 `API_PRIVATE_KEYS_DIR` 传给 altool，上传结束就删掉。不会把密钥内容打进日志。
 
 ```bash
-xcrun altool --upload-package MacFan-v1.2.3.pkg -t osx \
+xcrun altool --upload-package MenuGauge-v1.2.3.pkg -t osx \
   --apple-id "$ASC_APP_APPLE_ID" \
   --bundle-id "$MACFAN_BUNDLE_ID" \
   --bundle-short-version-string "$MACFAN_VERSION" \
@@ -197,10 +199,10 @@ xcrun altool --upload-package MacFan-v1.2.3.pkg -t osx \
 这台环境是 Linux，不能跑 Swift 工具链。合并前请在装有 Xcode 26 命令行工具的 Mac 上做这些事：
 
 1. `swift test`。
-2. `bash Scripts/build.sh`，把 `build/MacFan.app` 拷到 `/Applications` 再打开。风扇转速和 CPU 温度仍来自 SMC；开机自启动仍要在系统设置里批准；图标在 macOS 26 上保持扁平，在 13–15 上仍是 ICNS。
-3. `bash Scripts/build.sh dmg`（用上面的身份和公证变量）。`codesign -dv --verbose=4 build/MacFan.app` 应显示 Developer ID、runtime、timestamp。公证和 `stapler validate` 由脚本执行，失败即非零退出。打开 dmg，把 app 拖进「应用程序」，Gatekeeper 不应再要求右键打开。SMC 读数应与 ad-hoc 包一致。
+2. `bash Scripts/build.sh`，把 `build/MenuGauge.app` 拷到 `/Applications` 再打开。风扇转速和 CPU 温度仍来自 SMC；开机自启动仍要在系统设置里批准；图标在 macOS 26 上保持扁平，在 13–15 上仍是 ICNS。
+3. `bash Scripts/build.sh dmg`（用上面的身份和公证变量）。`codesign -dv --verbose=4 build/MenuGauge.app` 应显示 Developer ID、runtime、timestamp。公证和 `stapler validate` 由脚本执行，失败即非零退出。打开 dmg，把 app 拖进「应用程序」，Gatekeeper 不应再要求右键打开。SMC 读数应与 ad-hoc 包一致。
 4. `bash Scripts/build.sh appstore`（用描述文件和两个 Distribution 身份）。确认：
-   - `codesign -d --entitlements :- build/MacFan-MAS.app` 含沙盒，且 application-identifier / team id 与描述文件一致。
+   - `codesign -d --entitlements :- build/MenuGauge-MAS.app` 含沙盒，且 application-identifier / team id 与描述文件一致。
    - 弹出面板温度是热状态而不是 °C，风扇一行也是热状态而不是 RPM。
    - CPU、内存、磁盘、网速仍有数。GPU 若变成 `--`，那是沙盒挡住了注册表，保持这样，不要加 IOKit 例外。
    - 开机自启动在沙盒里仍能注册，或把系统返回的错误显示出来。
@@ -210,15 +212,17 @@ xcrun altool --upload-package MacFan-v1.2.3.pkg -t osx \
 
 ---
 
-# Releasing MacFan
+# Releasing MenuGauge
+
+The display name is **MenuGauge** (formerly MacFan) on both the website DMG and the Mac App Store. The bundle identifier stays `com.badpx.macfan`. The GitHub repository and Pages URL stay the same. The App Store Connect record already exists: name MenuGauge, App ID `6827516123`, SKU `menu_gauge`, primary language English (U.S.).
 
 Both artifacts come from `Scripts/build.sh`: SwiftPM compiles, then the script assembles the `.app` by hand. There is no `.xcodeproj` or `.xcworkspace`, and none should be added.
 
 | Command | Audience | Output |
 | --- | --- | --- |
-| `bash Scripts/build.sh` | Local install | `build/MacFan.app`, ad-hoc signature |
-| `bash Scripts/build.sh dmg` | Website / GitHub Release | `build/MacFan-v<version>.dmg`, Developer ID, notarized, stapled |
-| `bash Scripts/build.sh appstore` | Mac App Store | `build/MacFan-v<version>.pkg`, sandboxed |
+| `bash Scripts/build.sh` | Local install | `build/MenuGauge.app`, ad-hoc signature |
+| `bash Scripts/build.sh dmg` | Website / GitHub Release | `build/MenuGauge-v<version>.dmg`, Developer ID, notarized, stapled |
+| `bash Scripts/build.sh appstore` | Mac App Store | `build/MenuGauge-v<version>.pkg`, sandboxed |
 
 `bash Scripts/build.sh --help` lists every flag. Identities, Team ID, the profile, the version and notarization credentials come only from the environment or flags. `.p8` keys and `.provisionprofile` files are gitignored.
 
@@ -253,7 +257,7 @@ The direct download is **not sandboxed**. Fan RPM and CPU temperature still come
    When `NOTARY_KEY_PATH`, `NOTARY_KEY_ID` and `NOTARY_ISSUER` are all set, the script uses the API key and ignores a profile. To use a profile, leave those three unset.
 
    ```bash
-   xcrun notarytool store-credentials "MacFan-Notary" \
+   xcrun notarytool store-credentials "MenuGauge-Notary" \
      --key "$NOTARY_KEY_PATH" \
      --key-id "$NOTARY_KEY_ID" \
      --issuer "$NOTARY_ISSUER"
@@ -277,7 +281,7 @@ Keychain profile only:
 
 ```bash
 export DEVELOPER_ID_APPLICATION="Developer ID Application: Name (TEAMID)"
-export NOTARY_KEYCHAIN_PROFILE="MacFan-Notary"
+export NOTARY_KEYCHAIN_PROFILE="MenuGauge-Notary"
 export MACFAN_VERSION="1.2.3"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh dmg
@@ -289,10 +293,10 @@ bash Scripts/build.sh dmg
 2. `lipo` builds the universal binary and checks that both slices reference `_IOServiceOpen`, that the `AppleSMC` literal is present, and that private `IOHIDEventSystemClientCreate` is absent.
 3. Assembles the `.app`: `actool` compiles `Resources/MacFanFlat.icon` (flat icon on macOS 26; ICNS on macOS 13–15), copies the menu-bar eye images and `PrivacyInfo.xcprivacy`, and writes the version.
 4. Signs with Developer ID Application, `--options runtime --timestamp`. No sandbox and no extra entitlements.
-5. Builds a UDZO disk image containing `MacFan.app` and a symlink to `/Applications`, then signs the dmg with the same identity.
+5. Builds a UDZO disk image with volume name MenuGauge, containing `MenuGauge.app` and a symlink to `/Applications`, then signs the dmg with the same identity.
 6. `xcrun notarytool submit --wait`, then `xcrun stapler staple` and `stapler validate`.
 
-Output: `build/MacFan-v1.2.3.dmg`. The GitHub Release tag must be `v1.2.3` and the asset must be named `MacFan-v1.2.3.dmg`. The website prefers that file and falls back to a same-named zip for older releases.
+Output: `build/MenuGauge-v1.2.3.dmg`. The GitHub Release tag must be `v1.2.3` and the asset must be named `MenuGauge-v1.2.3.dmg`. The website prefers that file, then a same-named zip. It still accepts an older `MacFan-v<version>.dmg` or `.zip`, so the release that is already live does not break the site build.
 
 The staple is on the dmg. After the app is copied to Applications, Gatekeeper checks Apple's online ticket. The first offline launch still wants a machine that has been online for that check.
 
@@ -305,11 +309,11 @@ The sandbox refuses the AppleSMC user client. An `iokit-user-client-class` tempo
 - The large temperature figure shows the localized thermal state, captioned as thermal state, not °C.
 - The fan row shows that same state, not an RPM.
 - The menu bar uses the fixed tokens `OK` / `WARM` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`, fan is labeled `FAN`.
-- `MacFan --fandump` exits immediately in this binary.
+- `MenuGauge --fandump` exits immediately in this binary.
 
 CPU, GPU, memory, disk and network sampling are unchanged. GPU reads public `IOAccelerator` registry properties and does not call `IOServiceOpen`. If the sandbox hides that dictionary, the UI already shows `--`. Do not add a temporary exception to force it.
 
-Unused `Sources/MacFan/System/HIDSensors.swift` is deleted. It resolved private `IOHIDEventSystemClient*` symbols with `dlsym`, which neither edition can ship.
+Unused `Sources/MenuGauge/System/HIDSensors.swift` is deleted. It resolved private `IOHIDEventSystemClient*` symbols with `dlsym`, which neither edition can ship.
 
 ### Prerequisites
 
@@ -321,7 +325,7 @@ Unused `Sources/MacFan/System/HIDSensors.swift` is deleted. It resolved private 
    ```
 
 2. The 10-character Team ID, `APPLE_TEAM_ID` or `--team-id`.
-3. A macOS app in App Store Connect whose bundle id is `MACFAN_BUNDLE_ID`. Enable App Sandbox on the App ID. Do not enable an IOKit user client.
+3. The existing macOS app in App Store Connect named MenuGauge (App ID `6827516123`, SKU `menu_gauge`, primary language English (U.S.)). Its bundle id is `MACFAN_BUNDLE_ID`. Do not create a second record. Enable App Sandbox on the App ID. Do not enable an IOKit user client.
 4. The matching Mac App Store **distribution** provisioning profile. The script decodes it and requires `com.apple.application-identifier` to equal `TEAMID.bundleid`, a matching team id, sandbox `true`, and no `iokit-user-client-class` entry.
 
 The signed entitlements are only these three (`Resources/MacFan-MAS.entitlements`; the script fills in the Team ID and bundle id):
@@ -338,7 +342,7 @@ There is no network-client, file-access or IOKit exception. UserDefaults, volume
 export APPLE_TEAM_ID="TEAMID"
 export APPLE_DISTRIBUTION_IDENTITY="Apple Distribution: Name (TEAMID)"
 export MAC_INSTALLER_DISTRIBUTION_IDENTITY="Mac Installer Distribution: Name (TEAMID)"
-export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MacFan_Mac_AppStore.provisionprofile"
+export MACFAN_PROVISIONING_PROFILE="$HOME/Downloads/MenuGauge_Mac_AppStore.provisionprofile"
 export MACFAN_VERSION="1.2.3"
 export MACFAN_BUILD="4"
 bash Scripts/build.sh appstore
@@ -347,13 +351,13 @@ bash Scripts/build.sh appstore
 ### What the script does
 
 1. Compiles both architectures with `-DMAS` into `build/spm-mas` and runs `lipo`. Neither slice may reference `_IOServiceOpen`, and the binary must not contain `AppleSMC` or `IOHIDEventSystemClientCreate`.
-2. Assembles `build/MacFan-MAS.app` (same icon and privacy manifest as the DMG) and writes the version.
+2. Assembles `build/MenuGauge-MAS.app` (same icon and privacy manifest as the DMG) and writes the version.
 3. Copies the profile to `Contents/embedded.provisionprofile`, then signs. The profile is inside the bundle before signing so the signature covers it.
 4. `codesign --options runtime --timestamp --generate-entitlement-der` with the Apple Distribution identity, then `codesign --verify --strict`, and checks that the signed sandbox entitlement is true.
-5. `productbuild --component build/MacFan-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`. The requirements plist takes the minimum OS from `LSMinimumSystemVersion` (13.0) and lists `arm64` and `x86_64`, so the installer is not evaluated only under Rosetta.
+5. `productbuild --component build/MenuGauge-MAS.app /Applications --product … --sign "Mac Installer Distribution: …"`. The requirements plist takes the minimum OS from `LSMinimumSystemVersion` (13.0) and lists `arm64` and `x86_64`, so the installer is not evaluated only under Rosetta.
 6. `pkgutil --check-signature`.
 
-Output: `build/MacFan-v1.2.3.pkg` and `build/MacFan-MAS.app`. The local and DMG commands use `build/MacFan.app`, so the two editions do not overwrite each other's bundle.
+Output: `build/MenuGauge-v1.2.3.pkg` and `build/MenuGauge-MAS.app`. The local and DMG commands use `build/MenuGauge.app`, so the two editions do not overwrite each other's bundle.
 
 ### Upload (off by default)
 
@@ -372,7 +376,7 @@ bash Scripts/build.sh appstore --upload
 The script copies the `.p8` into a temporary directory as `AuthKey_<id>.p8`, points altool at it with `API_PRIVATE_KEYS_DIR`, and deletes the copy when the upload finishes. The key bytes are not printed.
 
 ```bash
-xcrun altool --upload-package MacFan-v1.2.3.pkg -t osx \
+xcrun altool --upload-package MenuGauge-v1.2.3.pkg -t osx \
   --apple-id "$ASC_APP_APPLE_ID" \
   --bundle-id "$MACFAN_BUNDLE_ID" \
   --bundle-short-version-string "$MACFAN_VERSION" \
@@ -409,10 +413,10 @@ The source plist now includes:
 This change was written on Linux, so the Swift toolchain did not run. Before relying on a release, use a Mac with the Xcode 26 command-line tools:
 
 1. `swift test`.
-2. `bash Scripts/build.sh`, copy `build/MacFan.app` to `/Applications` and launch it. Fan RPM and CPU temperature still come from SMC. Launch at login still needs approval in System Settings. The icon stays flat on macOS 26 and uses the ICNS on 13–15.
-3. `bash Scripts/build.sh dmg` with the identity and notarization variables above. `codesign -dv --verbose=4 build/MacFan.app` should show Developer ID, the hardened runtime and a timestamp. Notarization and `stapler validate` run inside the script and fail the build on error. Open the dmg, drag the app to Applications, and confirm Gatekeeper does not ask for a right-click Open. SMC readings should match the ad-hoc app.
+2. `bash Scripts/build.sh`, copy `build/MenuGauge.app` to `/Applications` and launch it. Fan RPM and CPU temperature still come from SMC. Launch at login still needs approval in System Settings. The icon stays flat on macOS 26 and uses the ICNS on 13–15.
+3. `bash Scripts/build.sh dmg` with the identity and notarization variables above. `codesign -dv --verbose=4 build/MenuGauge.app` should show Developer ID, the hardened runtime and a timestamp. Notarization and `stapler validate` run inside the script and fail the build on error. Open the dmg, drag the app to Applications, and confirm Gatekeeper does not ask for a right-click Open. SMC readings should match the ad-hoc app.
 4. `bash Scripts/build.sh appstore` with the profile and both distribution identities. Confirm:
-   - `codesign -d --entitlements :- build/MacFan-MAS.app` contains the sandbox, and the application identifier and team id match the profile.
+   - `codesign -d --entitlements :- build/MenuGauge-MAS.app` contains the sandbox, and the application identifier and team id match the profile.
    - The temperature figure is a thermal state, not °C, and the fan row is that same state, not an RPM.
    - CPU, memory, disk and network still produce numbers. If GPU becomes `--`, the sandbox hid the registry entry; leave it that way and do not add an IOKit exception.
    - Launch at login still registers inside the sandbox, or the panel shows the error the system returned.

@@ -24,7 +24,7 @@ func render(pixelSize: Int, fullBleed: Bool = false) throws -> Data {
                                        colorSpaceName: .deviceRGB,
                                        bytesPerRow: 0, bitsPerPixel: 0),
           let graphics = NSGraphicsContext(bitmapImageRep: bitmap),
-          let symbol = NSImage(systemSymbolName: "fan", accessibilityDescription: "MacFan") else {
+          let symbol = NSImage(systemSymbolName: "fan", accessibilityDescription: "MenuGauge") else {
         throw NSError(domain: "MacFanIcon", code: 1,
                       userInfo: [NSLocalizedDescriptionKey: "Cannot create fan symbol or bitmap"])
     }

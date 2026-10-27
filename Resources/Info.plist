@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>MacFan</string>
+	<string>MenuGauge</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.badpx.macfan</string>
 	<key>CFBundleIconFile</key>
@@ -27,7 +27,9 @@
 		<string>pt</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>MacFan</string>
+	<string>MenuGauge</string>
+	<key>CFBundleDisplayName</key>
+	<string>MenuGauge</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

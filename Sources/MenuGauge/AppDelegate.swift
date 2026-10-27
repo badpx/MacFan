@@ -5,7 +5,9 @@ import SwiftUI
 /// Menu bar controller with a native popover and one shared 2s sampler.
 /// Metrics can be toggled in the popover; selected ones are shown directly
 /// in the menu bar as two-line widgets (value over label, separated by
-/// vertical bars). The selection is persisted in UserDefaults.
+/// vertical bars). The selection is persisted in UserDefaults.standard
+/// under "menuBarMetrics". That domain follows the bundle identifier
+/// com.badpx.macfan, so the MenuGauge rename keeps an existing choice.
 /// When the menu bar runs out of room the system silently hides the
 /// status item; the controller then drops widgets from the right end
 /// and periodically probes for free space to bring them back.
@@ -181,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = NSHostingController(rootView: PopoverView(model: panelModel))
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
-        statusItem.button?.setAccessibilityLabel("MacFan")
+        statusItem.button?.setAccessibilityLabel("MenuGauge")
         panelModel.onSelection = { [weak self] id, enabled in self?.setMetric(id, enabled: enabled) }
         panelModel.onLogin = { [weak self] enabled in self?.setLaunchAtLogin(enabled) }
         panelModel.onQuit = { [weak self] in self?.quit() }
@@ -314,7 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let symbolName = NSImage(systemSymbolName: "fan", accessibilityDescription: nil) != nil
                 ? "fan" : "gauge.medium"
             var image = NSImage(systemSymbolName: symbolName,
-                                accessibilityDescription: "MacFan")
+                                accessibilityDescription: "MenuGauge")
             // Slightly larger than the default menu bar glyph size.
             if let configured = image?.withSymbolConfiguration(
                 .init(pointSize: 15, weight: .regular, scale: .medium)) {
@@ -369,7 +371,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if statusItemIsVisible() {
             if probeInFlight {
                 probeInFlight = false
-                NSLog("MacFan: restore probe succeeded, \(hiddenWidgetCount) widget(s) still hidden")
+                NSLog("MenuGauge: restore probe succeeded, \(hiddenWidgetCount) widget(s) still hidden")
                 probeRestore(forced: true)
             }
             return
@@ -378,7 +380,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         hiddenWidgetCount += 1
         // Freshly degraded: wait before probing again.
         lastProbeAttempt = Date()
-        NSLog("MacFan: menu bar full, hiding rightmost widget (\(hiddenWidgetCount) hidden)")
+        NSLog("MenuGauge: menu bar full, hiding rightmost widget (\(hiddenWidgetCount) hidden)")
         updateStatusBar()
     }
 
@@ -395,7 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         lastProbeAttempt = now
         hiddenWidgetCount -= 1
         probeInFlight = true
-        NSLog("MacFan: probing menu bar space (\(hiddenWidgetCount) widget(s) still hidden)")
+        NSLog("MenuGauge: probing menu bar space (\(hiddenWidgetCount) widget(s) still hidden)")
         updateStatusBar()
     }
 
@@ -408,7 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func statusItemIsVisible() -> Bool {
         guard let window = statusItem.button?.window else { return false }
         if ProcessInfo.processInfo.environment["MACFAN_DEBUG_LAYOUT"] != nil {
-            NSLog("MacFan: window=\(NSStringFromRect(window.frame)) occlusion=\(window.occlusionState.rawValue)")
+            NSLog("MenuGauge: window=\(NSStringFromRect(window.frame)) occlusion=\(window.occlusionState.rawValue)")
         }
         return window.occlusionState.contains(.visible)
     }

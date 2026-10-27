@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacFan
+@testable import MenuGauge
 
 final class TemperatureMonitorTests: XCTestCase {
     func testAverageFiltersInvalidReadingsAndUsesOnlyValidCount() {

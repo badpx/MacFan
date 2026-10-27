@@ -1,7 +1,7 @@
 #!/bin/bash
-# MacFan packaging. SwiftPM + a hand-assembled .app. No Xcode project.
+# MenuGauge packaging. SwiftPM + a hand-assembled .app. No Xcode project.
 #
-#   Scripts/build.sh                  local ad-hoc MacFan.app (unchanged flow)
+#   Scripts/build.sh                  local ad-hoc MenuGauge.app (unchanged flow)
 #   Scripts/build.sh dmg              Developer ID, notarized, stapled DMG
 #   Scripts/build.sh appstore         sandboxed Mac App Store pkg
 #   Scripts/build.sh appstore --upload
@@ -17,7 +17,7 @@ CALLER_PWD=$PWD
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 
-APP_NAME="MacFan"
+APP_NAME="MenuGauge"
 BUILD_DIR="build"
 MACFAN_KEY_DIR=""
 
@@ -36,7 +36,7 @@ die() {
 usage() {
   cat <<'EOF'
 Usage:
-  Scripts/build.sh [app] [flags]     ad-hoc universal MacFan.app
+  Scripts/build.sh [app] [flags]     ad-hoc universal MenuGauge.app
   Scripts/build.sh dmg [flags]       Developer ID disk image, notarized
   Scripts/build.sh appstore [flags]  sandboxed Mac App Store package
   Scripts/build.sh --help
@@ -412,6 +412,9 @@ assemble_app() {
   cp Resources/AppIcon.icns "$dest/Contents/Resources/MacFanFlat.icns"
   cp Resources/MenuEyeOn.png Resources/MenuEyeOff.png "$dest/Contents/Resources/"
   cp Resources/PrivacyInfo.xcprivacy "$dest/Contents/Resources/PrivacyInfo.xcprivacy"
+  plist_set_string "$dest/Contents/Info.plist" CFBundleName "$APP_NAME"
+  plist_set_string "$dest/Contents/Info.plist" CFBundleDisplayName "$APP_NAME"
+  plist_set_string "$dest/Contents/Info.plist" CFBundleExecutable "$APP_NAME"
   plist_set_string "$dest/Contents/Info.plist" CFBundleShortVersionString "$MACFAN_VERSION"
   plist_set_string "$dest/Contents/Info.plist" CFBundleVersion "$MACFAN_BUILD"
   plist_set_string "$dest/Contents/Info.plist" CFBundleIdentifier "$BUNDLE_ID"
@@ -521,7 +524,7 @@ make_dmg() {
   fi
   # Same pipefail hazard as slice_imports: do not pipe this into grep -q.
   case "$volumes" in
-    *'/Volumes/MacFan'*) hdiutil detach "/Volumes/MacFan" || true ;;
+    *"/Volumes/$APP_NAME"*) hdiutil detach "/Volumes/$APP_NAME" || true ;;
   esac
   rm -rf "$staging"
   mkdir -p "$staging"
