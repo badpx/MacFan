@@ -391,8 +391,112 @@ plist_set_string() {
   fi
 }
 
+# Bitmap sizes App Store Connect requires inside Assets.car. The Icon Composer
+# file alone, with fallback generation disabled, does not emit 512pt @2x.
+write_mas_icon_contents() {
+  local iconset="$1"
+  cat > "$iconset/Contents.json" <<'EOF'
+{
+  "images" : [
+    { "filename" : "icon_16x16.png", "idiom" : "mac", "scale" : "1x", "size" : "16x16" },
+    { "filename" : "icon_16x16@2x.png", "idiom" : "mac", "scale" : "2x", "size" : "16x16" },
+    { "filename" : "icon_32x32.png", "idiom" : "mac", "scale" : "1x", "size" : "32x32" },
+    { "filename" : "icon_32x32@2x.png", "idiom" : "mac", "scale" : "2x", "size" : "32x32" },
+    { "filename" : "icon_128x128.png", "idiom" : "mac", "scale" : "1x", "size" : "128x128" },
+    { "filename" : "icon_128x128@2x.png", "idiom" : "mac", "scale" : "2x", "size" : "128x128" },
+    { "filename" : "icon_256x256.png", "idiom" : "mac", "scale" : "1x", "size" : "256x256" },
+    { "filename" : "icon_256x256@2x.png", "idiom" : "mac", "scale" : "2x", "size" : "256x256" },
+    { "filename" : "icon_512x512.png", "idiom" : "mac", "scale" : "1x", "size" : "512x512" },
+    { "filename" : "icon_512x512@2x.png", "idiom" : "mac", "scale" : "2x", "size" : "512x512" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+EOF
+  printf '%s\n' '{ "info" : { "author" : "xcode", "version" : 1 } }' > "$BUILD_DIR/MenuGaugeFlat.xcassets/Contents.json"
+}
+
+prepare_mas_icon_catalog() {
+  local iconset="$BUILD_DIR/MenuGaugeFlat.xcassets/MenuGaugeFlat.appiconset"
+  local width
+  rm -rf "$BUILD_DIR/MenuGaugeFlat.xcassets"
+  mkdir -p "$iconset"
+  echo "==> Drawing App Store icon bitmaps"
+  swift Scripts/generate_icon.swift "$iconset" --iconset-only
+  write_mas_icon_contents "$iconset"
+  width=$(sips -g pixelWidth "$iconset/icon_512x512@2x.png" | awk '/pixelWidth/ { print $2 }')
+  if [[ "$width" != "1024" ]]; then
+    die "icon_512x512@2x.png is ${width:-missing}px; the App Store slot is 512pt @2x (1024px)"
+  fi
+}
+
+# assetutil lists the Icon Composer layer as a 1024px Icon Image at scale 1.
+# App Store Connect wants the separate 512pt @2x rendition: 1024px at scale 2.
+require_mas_app_icon() {
+  local car="$1"
+  local info="$BUILD_DIR/assets-car-info.json"
+  if [[ ! -f "$car" ]]; then
+    die "App Store bundle is missing Assets.car"
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    die "python3 is required to read assetutil output"
+  fi
+  xcrun assetutil --info "$car" > "$info"
+  python3 - "$info" <<'PY' || die "Assets.car has no 512pt @2x (1024px, scale 2) icon rendition named MenuGaugeFlat. App Store Connect rejects that (ITMS-90236). Inspect: xcrun assetutil --info $car"
+import json, sys
+raw = json.load(open(sys.argv[1]))
+items = raw if isinstance(raw, list) else []
+def is_two(value):
+    return value in (2, 2.0, "2", "2x")
+def as_int(value):
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
+for item in items:
+    if not isinstance(item, dict):
+        continue
+    if item.get("AssetType") != "Icon Image":
+        continue
+    if item.get("Name") != "MenuGaugeFlat":
+        continue
+    idiom = item.get("Idiom")
+    if idiom not in (None, "mac", "universal"):
+        continue
+    if not is_two(item.get("Scale")):
+        continue
+    if as_int(item.get("PixelWidth")) == 1024 and as_int(item.get("PixelHeight")) == 1024:
+        sys.exit(0)
+    rendition = str(item.get("RenditionName", ""))
+    if "512x512@2x" in rendition or "512x512@2X" in rendition:
+        sys.exit(0)
+sys.exit(1)
+PY
+  echo "==> Assets.car contains the 512pt @2x icon"
+}
+
+compile_app_icon() {
+  local dest="$1"
+  shift
+  # Fallback generation stays disabled. When it is enabled, actool replaces
+  # supplied bitmaps with its own and older macOS prefers those over the ICNS.
+  # The App Store catalog is passed in front of the .icon so its 512pt @2x
+  # bitmap is kept (--include-all-app-icons). The DMG passes only the .icon.
+  xcrun actool "$@" \
+    --compile "$dest/Contents/Resources" \
+    --app-icon MenuGaugeFlat --platform macosx --target-device mac \
+    --minimum-deployment-target 13.0 --development-region en \
+    --enable-on-demand-resources NO \
+    --enable-icon-stack-fallback-generation=disabled \
+    --include-all-app-icons \
+    --output-partial-info-plist "$BUILD_DIR/icon-info.plist"
+}
+
 assemble_app() {
   local dest="$1"
+  local edition="${2:-direct}"
   echo "==> Assembling $dest"
   rm -rf "$dest"
   mkdir -p "$dest/Contents/MacOS" "$dest/Contents/Resources"
@@ -401,17 +505,21 @@ assemble_app() {
   # Explicit flat Icon Composer artwork prevents macOS 26 from automatically
   # embossing the legacy ICNS. Keep our hand-rendered ICNS for macOS 13–15.
   echo "==> Compiling flat application icon (Xcode 26+)"
-  xcrun actool Resources/MenuGaugeFlat.icon \
-    --compile "$dest/Contents/Resources" \
-    --app-icon MenuGaugeFlat --platform macosx --target-device mac \
-    --minimum-deployment-target 13.0 --development-region en \
-    --enable-on-demand-resources NO \
-    --enable-icon-stack-fallback-generation=disabled \
-    --include-all-app-icons \
-    --output-partial-info-plist "$BUILD_DIR/icon-info.plist"
-  /usr/libexec/PlistBuddy -c 'Delete :CFBundleIconFile' "$dest/Contents/Info.plist"
+  if [[ "$edition" == "mas" ]]; then
+    prepare_mas_icon_catalog
+    compile_app_icon "$dest" "$BUILD_DIR/MenuGaugeFlat.xcassets" Resources/MenuGaugeFlat.icon
+  else
+    compile_app_icon "$dest" Resources/MenuGaugeFlat.icon
+  fi
+  /usr/libexec/PlistBuddy -c 'Delete :CFBundleIconFile' "$dest/Contents/Info.plist" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c 'Delete :CFBundleIconName' "$dest/Contents/Info.plist" 2>/dev/null || true
   /usr/libexec/PlistBuddy -c "Merge $BUILD_DIR/icon-info.plist" "$dest/Contents/Info.plist"
+  plist_set_string "$dest/Contents/Info.plist" CFBundleIconName "MenuGaugeFlat"
+  plist_set_string "$dest/Contents/Info.plist" CFBundleIconFile "MenuGaugeFlat"
   cp Resources/AppIcon.icns "$dest/Contents/Resources/MenuGaugeFlat.icns"
+  if [[ "$edition" == "mas" ]]; then
+    require_mas_app_icon "$dest/Contents/Resources/Assets.car"
+  fi
   cp Resources/PrivacyInfo.xcprivacy "$dest/Contents/Resources/PrivacyInfo.xcprivacy"
   plist_set_string "$dest/Contents/Info.plist" CFBundleName "$APP_NAME"
   plist_set_string "$dest/Contents/Info.plist" CFBundleDisplayName "$APP_NAME"
@@ -784,7 +892,7 @@ case "$COMMAND" in
     require_cmd security
     compile_release mas
     APP_DIR="$BUILD_DIR/$APP_NAME-MAS.app"
-    assemble_app "$APP_DIR"
+    assemble_app "$APP_DIR" mas
     sign_mas
     make_pkg
     if [[ "$MACFAN_UPLOAD" -eq 1 ]]; then
