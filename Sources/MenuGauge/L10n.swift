@@ -6,7 +6,6 @@ import Foundation
 /// language list. Unsupported languages fall back to English.
 enum L10n {
     enum UI: String {
-        case overview = "System overview"
         case cpuUsage = "CPU usage", gpuUsage = "GPU usage"
         case cpuTemperature = "CPU temperature", ofTotal = "of %@ GB"
         case available = "Available"
@@ -20,13 +19,11 @@ enum L10n {
 
     static func ui(_ key: UI) -> String {
         let simplified: [UI: String] = [
-            .overview: "系统概览",
             .cpuUsage: "CPU 占用", .gpuUsage: "GPU 占用",
             .cpuTemperature: "CPU 温度", .ofTotal: "共 %@ GB",
             .available: "可用",
         ]
         let traditional: [UI: String] = [
-            .overview: "系統概覽",
             .cpuUsage: "CPU 佔用", .gpuUsage: "GPU 佔用",
             .cpuTemperature: "CPU 溫度", .ofTotal: "共 %@ GB",
             .available: "可用",
@@ -95,7 +92,7 @@ enum L10n {
             .thermalSerious: "Serious", .thermalCritical: "Critical",
             .showInMenu: "Show in menu bar",
             .configHint: "Enabled metrics appear in the menu bar. Turn all off to show only the gauge icon.",
-            .loginHint: "Opens in the menu bar when you log in, without showing this window.",
+            .loginHint: "Opens in the menu bar when you log in.",
             .loginPending: "Approval required in System Settings",
             .loginUnavailable: "Login item unavailable for this app",
             .systemSettings: "Open System Settings",
@@ -122,7 +119,7 @@ enum L10n {
             .thermalSerious: "过热", .thermalCritical: "危急",
             .showInMenu: "菜单栏显示",
             .configHint: "开启后，指标会显示在顶部菜单栏。关闭所有指标时，仅显示仪表图标。",
-            .loginHint: "登录 Mac 后自动在菜单栏运行，不会弹出此窗口",
+            .loginHint: "登录 Mac 后自动在菜单栏运行",
             .loginPending: "请在系统设置中允许开机自启动",
             .loginUnavailable: "此应用的登录项暂不可用",
             .systemSettings: "打开系统设置",
@@ -149,7 +146,7 @@ enum L10n {
             .thermalSerious: "過熱", .thermalCritical: "危急",
             .showInMenu: "選單列顯示",
             .configHint: "開啟後，指標會顯示於選單列。關閉所有指標時，僅顯示儀表圖示。",
-            .loginHint: "登入 Mac 後會在選單列自動執行，不會顯示這個視窗",
+            .loginHint: "登入 Mac 後會在選單列自動執行",
             .loginPending: "請在系統設定中允許登入時啟動",
             .loginUnavailable: "此應用程式的登入項目暫不可用",
             .systemSettings: "開啟系統設定",
@@ -176,7 +173,7 @@ enum L10n {
             .thermalSerious: "高い", .thermalCritical: "危険",
             .showInMenu: "メニューバーに表示",
             .configHint: "オンにした項目はメニューバーに表示されます。すべてオフにすると、メーターアイコンだけになります。",
-            .loginHint: "ログインするとメニューバーで自動的に起動し、このウインドウは表示しません。",
+            .loginHint: "ログインするとメニューバーで自動的に起動します。",
             .loginPending: "システム設定での承認が必要です",
             .loginUnavailable: "このアプリのログイン項目は使えません",
             .systemSettings: "システム設定を開く",
@@ -203,7 +200,7 @@ enum L10n {
             .thermalSerious: "높음", .thermalCritical: "위험",
             .showInMenu: "메뉴 막대에 표시",
             .configHint: "켠 항목은 메뉴 막대에 나타납니다. 모두 끄면 게이지 아이콘만 표시됩니다.",
-            .loginHint: "로그인하면 메뉴 막대에서 자동으로 실행되며, 이 창은 열리지 않습니다.",
+            .loginHint: "로그인하면 메뉴 막대에서 자동으로 실행됩니다.",
             .loginPending: "시스템 설정에서 승인이 필요합니다",
             .loginUnavailable: "이 앱의 로그인 항목을 사용할 수 없습니다",
             .systemSettings: "시스템 설정 열기",
@@ -230,7 +227,7 @@ enum L10n {
             .thermalSerious: "गंभीर", .thermalCritical: "अति गंभीर",
             .showInMenu: "मेनू बार में दिखाएँ",
             .configHint: "चालू किए गए आँकड़े मेनू बार में दिखते हैं। सभी बंद करने पर केवल गेज आइकॉन रहता है।",
-            .loginHint: "लॉगइन करने पर मेनू बार में अपने आप खुलता है और यह विंडो नहीं दिखती।",
+            .loginHint: "लॉगइन करने पर मेनू बार में अपने आप खुलता है।",
             .loginPending: "सिस्टम सेटिंग्ज़ में अनुमति आवश्यक है",
             .loginUnavailable: "इस ऐप के लिए लॉगइन आइटम उपलब्ध नहीं है",
             .systemSettings: "सिस्टम सेटिंग्ज़ खोलें",
@@ -257,7 +254,7 @@ enum L10n {
             .thermalSerious: "Alto", .thermalCritical: "Crítico",
             .showInMenu: "Mostrar en la barra de menús",
             .configHint: "Los indicadores activados aparecen en la barra de menús. Desactívalos todos para mostrar solo el icono.",
-            .loginHint: "Se abre en la barra de menús al iniciar sesión, sin mostrar esta ventana.",
+            .loginHint: "Se abre en la barra de menús al iniciar sesión.",
             .loginPending: "Se requiere aprobación en Ajustes del Sistema",
             .loginUnavailable: "El ítem de inicio de sesión no está disponible para esta app",
             .systemSettings: "Abrir Ajustes del Sistema",
@@ -284,7 +281,7 @@ enum L10n {
             .thermalSerious: "Élevé", .thermalCritical: "Critique",
             .showInMenu: "Afficher dans la barre des menus",
             .configHint: "Les mesures activées apparaissent dans la barre des menus. Désactivez-les toutes pour n’afficher que l’icône.",
-            .loginHint: "S’ouvre dans la barre des menus à la connexion, sans afficher cette fenêtre.",
+            .loginHint: "S’ouvre dans la barre des menus à la connexion.",
             .loginPending: "Approbation requise dans Réglages Système",
             .loginUnavailable: "L’élément d’ouverture n’est pas disponible pour cette app",
             .systemSettings: "Ouvrir Réglages Système",
@@ -311,7 +308,7 @@ enum L10n {
             .thermalSerious: "উচ্চ", .thermalCritical: "সংকটপূর্ণ",
             .showInMenu: "মেনু বারে দেখান",
             .configHint: "চালু করা মাপগুলো মেনু বারে দেখা যায়। সব বন্ধ করলে শুধু গেজ আইকন থাকে।",
-            .loginHint: "লগইন করলে মেনু বারে নিজে থেকে চলবে, এই উইন্ডো দেখাবে না।",
+            .loginHint: "লগইন করলে মেনু বারে নিজে থেকে চলবে।",
             .loginPending: "সিস্টেম সেটিংসে অনুমোদন প্রয়োজন",
             .loginUnavailable: "এই অ্যাপের লগইন আইটেম এখন উপলভ্য নয়",
             .systemSettings: "সিস্টেম সেটিংস খুলুন",
@@ -338,7 +335,7 @@ enum L10n {
             .thermalSerious: "Высокое", .thermalCritical: "Критическое",
             .showInMenu: "Показывать в строке меню",
             .configHint: "Включённые показатели появляются в строке меню. Выключите все, чтобы остался только значок.",
-            .loginHint: "При входе запускается в строке меню и не показывает это окно.",
+            .loginHint: "При входе запускается в строке меню.",
             .loginPending: "Нужно разрешение в Системных настройках",
             .loginUnavailable: "Объект входа недоступен для этого приложения",
             .systemSettings: "Открыть Системные настройки",
@@ -365,7 +362,7 @@ enum L10n {
             .thermalSerious: "Alto", .thermalCritical: "Crítico",
             .showInMenu: "Mostrar na barra de menus",
             .configHint: "Os indicadores ativados aparecem na barra de menus. Desative todos para mostrar apenas o ícone.",
-            .loginHint: "Abre na barra de menus ao iniciar sessão, sem mostrar esta janela.",
+            .loginHint: "Abre na barra de menus ao iniciar sessão.",
             .loginPending: "É necessária aprovação nas Definições do Sistema",
             .loginUnavailable: "O item de início de sessão não está disponível para esta app",
             .systemSettings: "Abrir Definições do Sistema",

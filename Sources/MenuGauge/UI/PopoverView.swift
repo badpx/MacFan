@@ -30,8 +30,8 @@ struct PopoverView: View {
         static let headerRow: CGFloat = 28
         static let headerBottom: CGFloat = 8
         static let rule: CGFloat = 1
-        static let footerRow: CGFloat = 18
-        static let footerPad: CGFloat = 10
+        static let footerRow: CGFloat = 28
+        static let footerPad: CGFloat = 8
         static var height: CGFloat {
             headerTop + headerRow + headerBottom + rule + rule + footerPad * 2 + footerRow
         }
@@ -67,7 +67,7 @@ struct PopoverView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 AppIconGlyph(size: 18)
-                Text(L10n.ui(.overview))
+                Text("MenuGauge")
                     .font(.system(size: 14, weight: .semibold))
                 Spacer(minLength: 8)
                 Button { model.onOpenSettings?() } label: {
@@ -232,29 +232,27 @@ struct PopoverView: View {
         VStack(spacing: 0) {
             Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
             HStack {
-                Text(AppIdentity.versionLabel)
-                Spacer()
+                Spacer(minLength: 0)
                 Button { model.onQuit?() } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "power")
-                            .font(.system(size: 11, weight: .medium))
-                            .accessibilityHidden(true)
-                        Text(L10n.tr(.quitShort))
-                        Text("⌘Q")
-                            .padding(.leading, 2)
-                    }
+                    Image(systemName: "power")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 14, height: 14)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .tint(PanelPalette.accent)
                 .focusable(false)
-                .accessibilityLabel("\(L10n.tr(.quitShort)) ⌘Q")
+                .help(quitHelp)
+                .accessibilityLabel(quitHelp)
             }
-            .font(.system(size: 11))
-            .foregroundStyle(PanelPalette.secondary)
             .frame(height: Chrome.footerRow)
             .padding(.horizontal, 16)
             .padding(.vertical, Chrome.footerPad)
         }
     }
+
+    /// Spoken name and tooltip. ⌘Q still quits; the button itself is only the power icon.
+    private var quitHelp: String { "\(L10n.tr(.quitShort)) ⌘Q" }
 
     private func banner(_ text: String) -> some View {
         Text(text).font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)

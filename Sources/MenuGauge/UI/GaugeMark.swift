@@ -22,7 +22,8 @@ struct MenuBarHintArt: View {
     /// midpoint needle are enough to read as the live menu-bar gauge.
     static let gaugeKey = StatusGaugeImage.Key(segments: 2, step: 12, dimmed: false)
     static let artSize = CGSize(width: 144, height: 86)
-    static let ringCenter = CGPoint(x: 32, y: 26)
+    /// Horizontal middle of the menu-bar sample. The arrow tip uses this x.
+    static var ringCenter: CGPoint { CGPoint(x: artSize.width / 2, y: 26) }
     static let ringDiameter: CGFloat = 36
     static let highlight = Color(red: 0.98, green: 0.80, blue: 0.22)
 
@@ -32,7 +33,7 @@ struct MenuBarHintArt: View {
     static var arrowTip: CGPoint {
         CGPoint(x: ringCenter.x, y: ringCenter.y + ringDiameter / 2 + 3)
     }
-    static let arrowTail = CGPoint(x: 16, y: 78)
+    static var arrowTail: CGPoint { CGPoint(x: ringCenter.x - 40, y: 78) }
     static var arrowControl: CGPoint { CGPoint(x: arrowTip.x, y: 64) }
 
     private static let gaugeImage = StatusGaugeImage.paintedImage(for: gaugeKey, color: .white)
@@ -65,7 +66,7 @@ struct MenuBarHintArt: View {
                     .font(.system(size: 9, weight: .semibold))
             }
             .foregroundStyle(.white)
-            .position(x: 96, y: Self.ringCenter.y)
+            .position(x: Self.ringCenter.x + Self.ringDiameter / 2 + 26, y: Self.ringCenter.y)
         }
         .frame(width: Self.artSize.width, height: Self.artSize.height)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

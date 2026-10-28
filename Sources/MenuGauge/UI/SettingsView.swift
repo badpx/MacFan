@@ -9,14 +9,11 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            RunningHintCard()
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 2)
             Form {
-                Section {
-                    RunningHintCard()
-                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 8, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-
                 Section {
                     ForEach(MetricDescriptor.offered) { metric in
                         Toggle(metric.title, isOn: metricBinding(metric.id))

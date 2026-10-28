@@ -123,6 +123,8 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(alphaMask(painted), alphaMask(menu))
         let tip = MenuBarHintArt.arrowTip
         let ringBottom = MenuBarHintArt.ringCenter.y + MenuBarHintArt.ringDiameter / 2
+        XCTAssertEqual(MenuBarHintArt.ringCenter.x, MenuBarHintArt.artSize.width / 2)
+        XCTAssertEqual(tip.x, MenuBarHintArt.ringCenter.x)
         XCTAssertEqual(tip.x, MenuBarHintArt.arrowControl.x)
         XCTAssertGreaterThan(tip.y, ringBottom)
         XCTAssertLessThan(tip.y, MenuBarHintArt.arrowTail.y)
@@ -154,6 +156,25 @@ final class SettingsWindowTests: XCTestCase {
             }
         }
         return mask
+    }
+
+    func testLoginHintStopsBeforeTheSettingsWindow() {
+        let expected = [
+            "en": "Opens in the menu bar when you log in.",
+            "zh-Hans": "登录 Mac 后自动在菜单栏运行",
+            "zh-Hant": "登入 Mac 後會在選單列自動執行",
+            "ja": "ログインするとメニューバーで自動的に起動します。",
+            "ko": "로그인하면 메뉴 막대에서 자동으로 실행됩니다.",
+            "hi": "लॉगइन करने पर मेनू बार में अपने आप खुलता है।",
+            "es": "Se abre en la barra de menús al iniciar sesión.",
+            "fr": "S’ouvre dans la barre des menus à la connexion.",
+            "bn": "লগইন করলে মেনু বারে নিজে থেকে চলবে।",
+            "ru": "При входе запускается в строке меню.",
+            "pt": "Abre na barra de menus ao iniciar sessão.",
+        ]
+        for (language, phrase) in expected {
+            XCTAssertEqual(L10n.string(.loginHint, language: language), phrase, language)
+        }
     }
 
     func testTemperatureToggleNameFollowsTheEdition() {
