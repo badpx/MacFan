@@ -1,53 +1,44 @@
+import AppKit
 import SwiftUI
 
-/// Small product mark: teal tile, white gauge. Used in the panel header
-/// and the About row. The menu-bar status icon is a separate template image.
-struct GaugeMark: View {
-    var size: CGFloat = 18
+/// The bundled application icon, the same image the quit confirmation shows.
+struct AppIconGlyph: View {
+    var size: CGFloat
 
     var body: some View {
-        Canvas { context, canvas in
-            let rect = CGRect(origin: .zero, size: canvas)
-            let tile = Path(roundedRect: rect, cornerRadius: size * 0.22, style: .continuous)
-            context.fill(tile, with: .linearGradient(
-                Gradient(colors: [
-                    Color(red: 0.071, green: 0.565, blue: 0.478),
-                    Color(red: 0.020, green: 0.314, blue: 0.361),
-                ]),
-                startPoint: CGPoint(x: rect.maxX, y: rect.minY),
-                endPoint: CGPoint(x: rect.minX, y: rect.maxY)))
-            let hub = CGPoint(x: rect.midX, y: rect.midY + size * 0.02)
-            let radius = size * 0.30
-            let band = max(1, size * 0.09)
-            // Screen angles increase clockwise from the right. The gap sits at the bottom.
-            var arc = Path()
-            arc.addArc(center: hub, radius: radius,
-                       startAngle: .degrees(170), endAngle: .degrees(10), clockwise: true)
-            context.stroke(arc, with: .color(.white),
-                           style: StrokeStyle(lineWidth: band, lineCap: .round))
-            let radians = 38.0 * Double.pi / 180
-            let tip = CGPoint(x: hub.x + CGFloat(cos(radians)) * (radius - band),
-                              y: hub.y - CGFloat(sin(radians)) * (radius - band))
-            var shaft = Path()
-            shaft.move(to: hub)
-            shaft.addLine(to: tip)
-            context.stroke(shaft, with: .color(.white),
-                           style: StrokeStyle(lineWidth: band * 0.7, lineCap: .round))
-            let hubSize = band * 0.95
-            context.fill(Path(ellipseIn: CGRect(x: hub.x - hubSize / 2, y: hub.y - hubSize / 2,
-                                                width: hubSize, height: hubSize)),
-                         with: .color(.white))
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 
-/// Crop of the menu bar's top-right corner, with the gauge called out.
-/// Decorative: the card title and body carry the explanation.
+/// Crop of the menu bar with the real status-item gauge called out.
+/// The glyph is `StatusGaugeImage`, not a separate drawing. Decorative:
+/// the card title and body carry the explanation.
 struct MenuBarHintArt: View {
+    /// Fixed sample so the hint does not animate. Two segments and the
+    /// midpoint needle are enough to read as the live menu-bar gauge.
+    static let gaugeKey = StatusGaugeImage.Key(segments: 2, step: 12, dimmed: false)
+    static let artSize = CGSize(width: 144, height: 86)
+    static let ringCenter = CGPoint(x: 32, y: 26)
+    static let ringDiameter: CGFloat = 36
+    static let highlight = Color(red: 0.98, green: 0.80, blue: 0.22)
+
+    /// Just outside the ring, directly under its center. The control point
+    /// shares this x so the curve arrives vertically and the head points
+    /// straight at the gauge.
+    static var arrowTip: CGPoint {
+        CGPoint(x: ringCenter.x, y: ringCenter.y + ringDiameter / 2 + 3)
+    }
+    static let arrowTail = CGPoint(x: 16, y: 78)
+    static var arrowControl: CGPoint { CGPoint(x: arrowTip.x, y: 64) }
+
+    private static let gaugeImage = StatusGaugeImage.paintedImage(for: gaugeKey, color: .white)
+
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(LinearGradient(
                     colors: [
@@ -57,70 +48,51 @@ struct MenuBarHintArt: View {
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing))
-            HStack(spacing: 5) {
-                ZStack {
-                    Circle()
-                        .stroke(Color(red: 0.98, green: 0.82, blue: 0.28), lineWidth: 1.5)
-                        .frame(width: 18, height: 18)
-                    TemplateGauge(size: 11)
-                }
-                Image(systemName: "wifi")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("9:41")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(.white)
+            CalloutArrow()
+                .stroke(Self.highlight, style: StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
+                .frame(width: Self.artSize.width, height: Self.artSize.height)
+            ZStack {
+                Circle()
+                    .stroke(Self.highlight, lineWidth: 2)
+                    .frame(width: Self.ringDiameter, height: Self.ringDiameter)
+                Image(nsImage: Self.gaugeImage)
             }
-            .padding(.top, 6)
-            .padding(.leading, 12)
-            HintArrow()
-                .stroke(Color(red: 0.98, green: 0.78, blue: 0.22),
-                        style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-                .frame(width: 46, height: 32)
-                .offset(x: 4, y: 30)
+            .position(Self.ringCenter)
+            HStack(spacing: 4) {
+                Image(systemName: "wifi")
+                    .font(.system(size: 9, weight: .semibold))
+                Text("9:41")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .position(x: 96, y: Self.ringCenter.y)
         }
-        .frame(width: 132, height: 74)
-        .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+        .frame(width: Self.artSize.width, height: Self.artSize.height)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
         .accessibilityHidden(true)
     }
 }
 
-/// White menu-bar gauge, not the teal app tile. Angles match the status icon:
-/// open at the bottom, needle toward the upper right.
-private struct TemplateGauge: View {
-    var size: CGFloat
-
-    var body: some View {
-        Canvas { context, canvas in
-            let hub = CGPoint(x: canvas.width / 2, y: canvas.height / 2 + 0.5)
-            let radius = size * 0.36
-            var arc = Path()
-            arc.addArc(center: hub, radius: radius,
-                       startAngle: .degrees(170), endAngle: .degrees(10), clockwise: true)
-            context.stroke(arc, with: .color(.white),
-                           style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
-            let radians = 38.0 * Double.pi / 180
-            let tip = CGPoint(x: hub.x + CGFloat(cos(radians)) * (radius - 1.2),
-                              y: hub.y - CGFloat(sin(radians)) * (radius - 1.2))
-            var shaft = Path()
-            shaft.move(to: hub)
-            shaft.addLine(to: tip)
-            context.stroke(shaft, with: .color(.white),
-                           style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
-        }
-        .frame(width: size, height: size)
-    }
-}
-
-private struct HintArrow: Shape {
+/// Arrow in the art’s own coordinates (origin top-left, y downward).
+private struct CalloutArrow: Shape {
     func path(in rect: CGRect) -> Path {
+        let tip = MenuBarHintArt.arrowTip
+        let control = MenuBarHintArt.arrowControl
         var path = Path()
-        let tip = CGPoint(x: rect.minX + 22, y: rect.minY + 2)
-        path.move(to: CGPoint(x: rect.minX + 6, y: rect.maxY - 2))
-        path.addQuadCurve(to: tip, control: CGPoint(x: rect.minX + 2, y: rect.midY))
-        path.move(to: CGPoint(x: tip.x - 6, y: tip.y + 5))
+        path.move(to: MenuBarHintArt.arrowTail)
+        path.addQuadCurve(to: tip, control: control)
+        let along = CGPoint(x: tip.x - control.x, y: tip.y - control.y)
+        let length = max(0.001, hypot(along.x, along.y))
+        let ux = along.x / length
+        let uy = along.y / length
+        let px = -uy
+        let py = ux
+        let head: CGFloat = 7
+        let base = CGPoint(x: tip.x - ux * head, y: tip.y - uy * head)
+        path.move(to: CGPoint(x: base.x + px * head * 0.75, y: base.y + py * head * 0.75))
         path.addLine(to: tip)
-        path.addLine(to: CGPoint(x: tip.x + 6, y: tip.y + 3))
+        path.addLine(to: CGPoint(x: base.x - px * head * 0.75, y: base.y - py * head * 0.75))
         return path
     }
 }

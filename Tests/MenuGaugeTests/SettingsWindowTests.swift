@@ -99,6 +99,63 @@ final class SettingsWindowTests: XCTestCase {
         }
     }
 
+    func testQuitDialogButtonIsShortWhileTheWindowButtonStaysFull() {
+        XCTAssertEqual(L10n.string(.quitShort, language: "en"), "Quit")
+        XCTAssertEqual(L10n.string(.quitShort, language: "zh-Hans"), "退出")
+        XCTAssertEqual(L10n.string(.quitConfirm, language: "zh-Hans"), "确认退出 MenuGauge 吗？")
+        XCTAssertEqual(L10n.string(.quit, language: "zh-Hans"), "退出 MenuGauge")
+        for language in L10n.translatedLanguages {
+            let button = L10n.string(.quitShort, language: language)
+            XCTAssertFalse(button.contains("MenuGauge"), "\(language) dialog button")
+            XCTAssertTrue(L10n.string(.quit, language: language).contains("MenuGauge"), language)
+            XCTAssertTrue(L10n.string(.quitConfirm, language: language).contains("MenuGauge"), language)
+        }
+    }
+
+    func testHintGaugeIsTheStatusItemDrawing() {
+        let key = MenuBarHintArt.gaugeKey
+        let painted = StatusGaugeImage.paintedImage(for: key, color: .white)
+        let menu = StatusGaugeImage.image(for: key)
+        XCTAssertFalse(painted.isTemplate)
+        XCTAssertTrue(menu.isTemplate)
+        XCTAssertEqual(painted.size, StatusGaugeImage.pointSize)
+        XCTAssertEqual(menu.size, painted.size)
+        XCTAssertEqual(alphaMask(painted), alphaMask(menu))
+        let tip = MenuBarHintArt.arrowTip
+        let ringBottom = MenuBarHintArt.ringCenter.y + MenuBarHintArt.ringDiameter / 2
+        XCTAssertEqual(tip.x, MenuBarHintArt.arrowControl.x)
+        XCTAssertGreaterThan(tip.y, ringBottom)
+        XCTAssertLessThan(tip.y, MenuBarHintArt.arrowTail.y)
+    }
+
+    private func alphaMask(_ image: NSImage) -> [Int] {
+        let scale: CGFloat = 2
+        let width = Int(image.size.width * scale)
+        let height = Int(image.size.height * scale)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else {
+            return []
+        }
+        rep.size = image.size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSColor.clear.setFill()
+        NSRect(x: 0, y: 0, width: image.size.width, height: image.size.height).fill()
+        image.draw(in: NSRect(origin: .zero, size: image.size))
+        NSGraphicsContext.restoreGraphicsState()
+        var mask: [Int] = []
+        mask.reserveCapacity(width * height)
+        for y in 0..<height {
+            for x in 0..<width {
+                let alpha = rep.colorAt(x: x, y: y)?.alphaComponent ?? 0
+                mask.append(Int((alpha * 255).rounded()))
+            }
+        }
+        return mask
+    }
+
     func testTemperatureToggleNameFollowsTheEdition() {
         let title = MetricDescriptor.all.first { $0.id == "temperature" }?.title
         #if MAS

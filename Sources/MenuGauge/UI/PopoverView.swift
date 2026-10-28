@@ -66,7 +66,7 @@ struct PopoverView: View {
     private var header: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                GaugeMark(size: 18)
+                AppIconGlyph(size: 18)
                 Text(L10n.ui(.overview))
                     .font(.system(size: 14, weight: .semibold))
                 Spacer(minLength: 8)

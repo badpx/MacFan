@@ -113,7 +113,7 @@ enum StatusGaugeImage {
     static func image(for key: Key) -> NSImage {
         if let cached = cache[key] { return cached }
         let image = NSImage(size: pointSize, flipped: false) { rect in
-            draw(key: key, in: rect)
+            draw(key: key, in: rect, color: .black)
             return true
         }
         image.isTemplate = true
@@ -121,16 +121,28 @@ enum StatusGaugeImage {
         return image
     }
 
-    private static func draw(key: Key, in rect: NSRect) {
-        // Black pixels only. `isTemplate` turns alpha into the menu-bar tint,
-        // including the highlighted state, once the image is the button image.
+    /// Same strokes as the menu-bar template, painted in `color` instead of
+    /// template black. The settings hint uses this so the glyph stays
+    /// visible on the wallpaper sample in light and dark mode.
+    static func paintedImage(for key: Key, color: NSColor) -> NSImage {
+        let image = NSImage(size: pointSize, flipped: false) { rect in
+            draw(key: key, in: rect, color: color)
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
+    private static func draw(key: Key, in rect: NSRect, color: NSColor) {
+        // The menu-bar image passes black. `isTemplate` turns that alpha
+        // into the menu-bar tint, including the highlighted state.
         let dim: CGFloat = key.dimmed ? 0.28 : 1
         let centerline = outerRadius - bandStroke / 2
         let hub = hubOrigin(in: rect.size)
         let spans = StatusGauge.segmentSpans(gap: StatusGauge.menuSegmentGap)
         for (index, span) in spans.enumerated() {
             let filled = index < key.segments
-            NSColor.black.withAlphaComponent(dim * (filled ? 1 : emptyAlpha)).setStroke()
+            color.withAlphaComponent(dim * (filled ? 1 : emptyAlpha)).setStroke()
             let path = NSBezierPath()
             path.lineCapStyle = .round
             path.lineWidth = bandStroke
@@ -139,7 +151,7 @@ enum StatusGaugeImage {
             path.stroke()
         }
 
-        NSColor.black.withAlphaComponent(dim).setFill()
+        color.withAlphaComponent(dim).setFill()
         let radians = StatusGauge.needleDegrees(step: key.step) * CGFloat.pi / 180
         let direction = CGPoint(x: cos(radians), y: sin(radians))
         let normal = CGPoint(x: -direction.y, y: direction.x)

@@ -100,7 +100,7 @@ struct SettingsView: View {
 
     private var about: some View {
         HStack(alignment: .center, spacing: 8) {
-            GaugeMark(size: 22)
+            AppIconGlyph(size: 28)
             VStack(alignment: .leading, spacing: 1) {
                 Text(AppIdentity.versionLabel)
                 if !AppEdition.isAppStore {

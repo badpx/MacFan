@@ -529,7 +529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // the app. Closing Settings never reaches this.
         let alert = NSAlert()
         alert.messageText = L10n.tr(.quitConfirm)
-        alert.addButton(withTitle: L10n.tr(.quit))
+        alert.addButton(withTitle: L10n.tr(.quitShort))
         alert.addButton(withTitle: L10n.tr(.cancel))
         // Accessory app: bring the alert to the front explicitly.
         NSApp.activate(ignoringOtherApps: true)
