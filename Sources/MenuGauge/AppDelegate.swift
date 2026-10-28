@@ -3,11 +3,12 @@ import Combine
 import SwiftUI
 
 /// Menu bar controller with a native popover and one shared 2s sampler.
-/// Metrics can be toggled in the popover; selected ones are shown directly
-/// in the menu bar as two-line widgets (value over label, separated by
-/// vertical bars). The selection is persisted in UserDefaults.standard
-/// under "menuBarMetrics". That domain follows the bundle identifier
-/// com.badpx.macfan, so the MenuGauge rename keeps an existing choice.
+/// Metrics are toggled in the Settings window; selected ones are shown
+/// directly in the menu bar as two-line widgets (value over label,
+/// separated by vertical bars). The selection is persisted in
+/// UserDefaults.standard under "menuBarMetrics". That domain follows the
+/// bundle identifier com.badpx.macfan, so the MenuGauge rename keeps an
+/// existing choice.
 /// When the menu bar runs out of room the system silently hides the
 /// status item; the controller then drops widgets from the right end
 /// and periodically probes for free space to bring them back.
@@ -138,7 +139,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let gauge = MenuBarGauge()
     private let popover = NSPopover()
     private let panelModel = PopoverModel()
+    private lazy var settings = SettingsWindowController(model: panelModel)
     private var keyMonitor: Any?
+    /// Set only after the user confirms. Lets the Dock's Quit, which calls
+    /// terminate directly, share one confirmation with the panel and ⌘Q.
+    private var quitConfirmed = false
+    private var quitPromptOpen = false
+    private var launchedAtLogin = false
+    /// Bumps when Settings is shown or closed, so a deferred order-front
+    /// cannot reopen a window the user already dismissed.
+    private var settingsPresentation = 0
     private var timer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -182,6 +192,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The open-application Apple event is only current during launch.
+        launchedAtLogin = LoginLaunch.isCurrentEvent()
         sanitizeStoredSelection()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -196,7 +208,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         panelModel.onSelection = { [weak self] id, enabled in self?.setMetric(id, enabled: enabled) }
         panelModel.onLogin = { [weak self] enabled in self?.setLaunchAtLogin(enabled) }
         panelModel.onQuit = { [weak self] in self?.quit() }
-        panelModel.onPage = { [weak self] in self?.resizePopover() }
+        panelModel.onOpenSettings = { [weak self] in self?.showSettings() }
+        settings.onQuit = { [weak self] in self?.quit() }
+        settings.onClose = { [weak self] in self?.settingsWindowDidClose() }
+        installMainMenu()
         // Resize as soon as the view reports a new measured content height,
         // instead of waiting for the next 2s refresh tick.
         panelModel.$contentHeight
@@ -228,6 +243,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             self, selector: #selector(probeRestoreIfDue),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
         updateStatusBar()
+        presentSettingsIfFirstLaunch()
+    }
+
+    /// A normal first launch shows Settings so the app is obviously running.
+    /// Login-item launches skip it and leave the flag unset.
+    private func presentSettingsIfFirstLaunch() {
+        let done = UserDefaults.standard.bool(forKey: LaunchPresentation.firstLaunchKey)
+        guard LaunchPresentation.shouldShowSettings(launchedAtLogin: launchedAtLogin,
+                                                    hasCompletedFirstLaunch: done) else { return }
+        UserDefaults.standard.set(true, forKey: LaunchPresentation.firstLaunchKey)
+        // After didFinishLaunching returns, activation-policy changes stick
+        // and the window can come forward.
+        DispatchQueue.main.async { [weak self] in self?.showSettings() }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return false
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if quitConfirmed || SessionQuit.isEndingSession(NSAppleEventManager.shared().currentAppleEvent) {
+            return .terminateNow
+        }
+        // Dock Quit calls terminate directly. Cancel that and show the
+        // same confirmation the panel and ⌘Q use.
+        DispatchQueue.main.async { [weak self] in self?.quit() }
+        return .terminateCancel
     }
 
     private func refresh() {
@@ -262,8 +309,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 guard let self, self.popover.isShown else { return event }
                 if event.keyCode == 53 { self.popover.performClose(nil); return nil }
-                if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "q" {
+                let command = event.modifierFlags.contains(.command)
+                let key = event.charactersIgnoringModifiers
+                if command, key == "q" {
                     self.quit()
+                    return nil
+                }
+                if command, key == "," {
+                    // Leave the monitor before it closes the popover.
+                    DispatchQueue.main.async { self.showSettings() }
                     return nil
                 }
                 return event
@@ -277,13 +331,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// Sizes the popover to the measured content height plus the fixed
-    /// chrome (tab bar + footer), so every metric row fits exactly and no
-    /// scroll bar appears. Falls back to estimates before the first layout.
+    /// chrome (header + footer), so every metric row fits exactly and no
+    /// scroll bar appears. Falls back to an estimate before the first layout.
     private func resizePopover() {
         let screen = statusItem.button?.window?.screen ?? NSScreen.main
         let available = max(300, (screen?.visibleFrame.height ?? 900) - 32)
-        let chrome: CGFloat = 73
-        let fallback: CGFloat = panelModel.page == .overview ? 302 : 500
+        let chrome = PopoverView.chromeHeight
+        let fallback: CGFloat = 330
         let desired = panelModel.contentHeight > 0
             ? ceil(panelModel.contentHeight + chrome) : fallback
         let height = min(desired, available)
@@ -292,7 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func syncPopover(force: Bool = false) {
-        guard force || popover.isShown else { return }
+        guard force || popover.isShown || settings.isVisible else { return }
         panelModel.readings = readings
         panelModel.selectedIDs = selectedIDs
         panelModel.hiddenCount = hiddenWidgetCount
@@ -300,7 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     @objc private func refreshLoginState() {
-        guard popover.isShown else { return }
+        guard popover.isShown || settings.isVisible else { return }
         panelModel.loginState = LoginItem.state
     }
 
@@ -449,6 +503,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         var selection = selectedIDs.filter { $0 != id }
         if enabled { selection.append(id) }
         selectedIDs = selection
+        panelModel.selectedIDs = selection
         hiddenWidgetCount = 0
         probeInFlight = false
         updateStatusBar()
@@ -461,21 +516,105 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         panelModel.loginState = LoginItem.state
     }
 
-    @objc private func quit() {
+    private func quit() {
+        if quitConfirmed {
+            NSApp.terminate(nil)
+            return
+        }
+        if quitPromptOpen { return }
+        quitPromptOpen = true
         let reopen = popover.isShown
         popover.performClose(nil)
         // Ask before terminating so a misclick in the menu doesn't kill
-        // the app.
+        // the app. Closing Settings never reaches this.
         let alert = NSAlert()
         alert.messageText = L10n.tr(.quitConfirm)
         alert.addButton(withTitle: L10n.tr(.quit))
         alert.addButton(withTitle: L10n.tr(.cancel))
         // Accessory app: bring the alert to the front explicitly.
         NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
+        let confirmed = alert.runModal() == .alertFirstButtonReturn
+        quitPromptOpen = false
+        if confirmed {
+            quitConfirmed = true
             NSApp.terminate(nil)
         } else if reopen {
             showPopover()
         }
+    }
+
+    /// Gear, ⌘,, first launch and Finder reopen all come through here.
+    /// The window is ordered front. While it is open the app is a normal
+    /// app so ⌘Tab and ⌘W work; closing it returns to the menu bar.
+    private func showSettings() {
+        settingsPresentation += 1
+        let presentation = settingsPresentation
+        if popover.isShown { popover.performClose(nil) }
+        panelModel.selectedIDs = selectedIDs
+        panelModel.loginState = LoginItem.state
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settings.show()
+        // Policy changes can land the window behind other apps. A second
+        // order-front on the next turn corrects that, unless it has since closed.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.settingsPresentation == presentation else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            self.settings.orderFront()
+        }
+    }
+
+    private func settingsWindowDidClose() {
+        settingsPresentation += 1
+        let presentation = settingsPresentation
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.settingsPresentation == presentation else { return }
+            guard !self.settings.isVisible, !self.quitConfirmed else { return }
+            if NSApp.activationPolicy() != .accessory {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
+    }
+
+    /// Shown while Settings is key. ⌘, and ⌘Q are also watched from the
+    /// popover, because an accessory app does not display this menu.
+    private func installMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        main.addItem(appItem)
+        let appMenu = NSMenu(title: "MenuGauge")
+        appItem.submenu = appMenu
+
+        let settingsItem = NSMenuItem(title: L10n.tr(.settings) + "…",
+                                      action: #selector(showSettingsFromMenu(_:)),
+                                      keyEquivalent: ",")
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(.separator())
+        let quitItem = NSMenuItem(title: L10n.tr(.quit),
+                                  action: #selector(quitFromMenu(_:)),
+                                  keyEquivalent: "q")
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+
+        let windowItem = NSMenuItem()
+        main.addItem(windowItem)
+        let windowMenu = NSMenu(title: L10n.tr(.windowMenu))
+        windowItem.submenu = windowMenu
+        windowMenu.addItem(NSMenuItem(title: L10n.tr(.closeWindow),
+                                      action: #selector(NSWindow.performClose(_:)),
+                                      keyEquivalent: "w"))
+        NSApp.windowsMenu = windowMenu
+        NSApp.mainMenu = main
+    }
+
+    @objc private func showSettingsFromMenu(_ sender: Any?) {
+        showSettings()
+    }
+
+    @objc private func quitFromMenu(_ sender: Any?) {
+        quit()
     }
 }

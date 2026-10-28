@@ -22,13 +22,30 @@ enum PanelPalette {
 struct PopoverView: View {
     @ObservedObject var model: PopoverModel
 
+    /// Header plus footer. The scroll view reports only the page body, and
+    /// these paddings are what `chromeHeight` adds back. Keep them together
+    /// so the popover does not grow a scrollbar for a point of padding.
+    private enum Chrome {
+        static let headerTop: CGFloat = 10
+        static let headerRow: CGFloat = 28
+        static let headerBottom: CGFloat = 8
+        static let rule: CGFloat = 1
+        static let footerRow: CGFloat = 18
+        static let footerPad: CGFloat = 10
+        static var height: CGFloat {
+            headerTop + headerRow + headerBottom + rule + rule + footerPad * 2 + footerRow
+        }
+    }
+
+    static var chromeHeight: CGFloat { Chrome.height }
+
     var body: some View {
         VStack(spacing: 0) {
-            tabBar
+            header
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     if model.hiddenCount > 0 { banner(L10n.tr(.menuBarOverflow)) }
-                    if model.page == .overview { overview } else { configuration }
+                    overview
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
@@ -37,7 +54,6 @@ struct PopoverView: View {
                     model.contentHeight = value
                 }
             }
-            .id(model.page)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             footer
         }
@@ -45,40 +61,32 @@ struct PopoverView: View {
         .foregroundStyle(Color.primary)
         .frame(width: 384, height: model.height)
         .background(PanelPalette.background)
-        .onChange(of: model.page) { _ in
-            model.contentHeight = 0
-            model.onPage?()
-        }
     }
 
-    private var tabBar: some View {
+    private var header: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 32) {
-                tabButton(.overview, title: L10n.ui(.overview))
-                tabButton(.configuration, title: L10n.ui(.configuration))
+            HStack(spacing: 8) {
+                GaugeMark(size: 18)
+                Text(L10n.ui(.overview))
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer(minLength: 8)
+                Button { model.onOpenSettings?() } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(PanelPalette.secondary)
+                        .frame(width: Chrome.headerRow, height: Chrome.headerRow)
+                        .background(PanelPalette.track, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .focusable(false)
+                .accessibilityLabel(L10n.tr(.settings))
             }
-            .padding(.top, 10)
-            Rectangle().fill(PanelPalette.line).frame(height: 1)
+            .frame(height: Chrome.headerRow)
+            .padding(.horizontal, 16)
+            .padding(.top, Chrome.headerTop)
+            .padding(.bottom, Chrome.headerBottom)
+            Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
         }
-    }
-
-    private func tabButton(_ page: PopoverPage, title: String) -> some View {
-        let active = model.page == page
-        return Button { model.page = page } label: {
-            VStack(spacing: 7) {
-                Text(title)
-                    .font(.system(size: 14, weight: active ? .semibold : .regular))
-                    .foregroundStyle(active ? Color.primary : PanelPalette.secondary)
-                Capsule()
-                    .fill(active ? PanelPalette.accent : Color.clear)
-                    .frame(width: 22, height: 2.5)
-            }
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .focusable(false)
-        .accessibilityAddTraits(active ? .isSelected : [])
     }
 
     private var overview: some View {
@@ -220,103 +228,32 @@ struct PopoverView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: Configuration
-
-    private var configuration: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            heading(L10n.ui(.showInMenu), detail: String(format: L10n.ui(.selected), model.selectedIDs.count))
-            VStack(spacing: 0) {
-                ForEach(MetricDescriptor.offered) { metric in
-                    if metric.id != "cpu" { Rectangle().fill(PanelPalette.line).frame(height: 1) }
-                    HStack {
-                        label(metric.title, symbol: metric.symbol)
-                        Spacer()
-                        Toggle(metric.title, isOn: Binding(get: { model.selectedIDs.contains(metric.id) },
-                                             set: { model.onSelection?(metric.id, $0) }))
-                            .labelsHidden().toggleStyle(.switch).controlSize(.mini)
-                            .tint(PanelPalette.accent)
-                            .focusable(false)
-                            .accessibilityLabel("\(L10n.ui(.showInMenu)): \(metric.title)")
-                    }
-                    .frame(minHeight: 34)
-                }
-            }
-            .padding(.horizontal, 12)
-            .background(PanelPalette.card, in: RoundedRectangle(cornerRadius: 10))
-            Text(L10n.ui(.configHint)).font(.system(size: 11)).foregroundStyle(PanelPalette.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 5) {
-                HStack {
-                    Text(L10n.tr(.launchAtLogin))
-                    Spacer()
-                    Toggle(L10n.tr(.launchAtLogin), isOn: Binding(
-                        get: { model.loginState == .enabled || model.loginState == .requiresApproval },
-                        set: { model.onLogin?($0) }))
-                        .labelsHidden().toggleStyle(.switch).controlSize(.mini).tint(PanelPalette.accent)
-                        .focusable(false)
-                }
-                Text(loginDescription).font(.system(size: 11)).foregroundStyle(PanelPalette.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if model.loginState == .requiresApproval {
-                    Button(L10n.ui(.systemSettings)) { LoginItem.openSettings() }
-                        .font(.system(size: 11)).buttonStyle(.link).focusable(false)
-                }
-            }.frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12).background(PanelPalette.card, in: RoundedRectangle(cornerRadius: 10))
-            Text(L10n.ui(.product)).font(.system(size: 11)).foregroundStyle(PanelPalette.secondary)
-                .frame(maxWidth: .infinity).padding(.top, 2)
-        }
-    }
-
-    private var loginDescription: String {
-        if let error = model.loginError { return error }
-        switch model.loginState {
-        case .requiresApproval: return L10n.ui(.loginPending)
-        case .unavailable: return L10n.ui(.loginUnavailable)
-        default: return L10n.ui(.loginHint)
-        }
-    }
-
     private var footer: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(PanelPalette.line).frame(height: 1)
+            Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
             HStack {
-                Text(String(format: L10n.ui(.menuCount), model.selectedIDs.count))
+                Text(AppIdentity.versionLabel)
                 Spacer()
-                if model.page == .overview {
-                    Text(versionText)
-                } else {
-                    Button { model.onQuit?() } label: {
-                        HStack(spacing: 10) { Text(L10n.tr(.quit)); Text("⌘ Q") }
+                Button { model.onQuit?() } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "power")
+                            .font(.system(size: 11, weight: .medium))
+                            .accessibilityHidden(true)
+                        Text(L10n.tr(.quitShort))
+                        Text("⌘Q")
+                            .padding(.leading, 2)
                     }
-                    .buttonStyle(.plain).focusable(false)
                 }
+                .buttonStyle(.plain)
+                .focusable(false)
+                .accessibilityLabel("\(L10n.tr(.quitShort)) ⌘Q")
             }
-            .font(.system(size: 11)).foregroundStyle(PanelPalette.secondary)
-            .padding(.horizontal, 20).padding(.vertical, 10)
-        }
-    }
-
-    private var versionText: String {
-        let bundled = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-        let product = (bundled?.isEmpty == false) ? bundled! : "MenuGauge"
-        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
-                as? String, !version.isEmpty else { return product }
-        return "\(product) v\(version)"
-    }
-
-    private func label(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol).font(.system(size: 12, weight: .medium))
+            .font(.system(size: 11))
             .foregroundStyle(PanelPalette.secondary)
-    }
-
-    private func heading(_ title: String, detail: String = "") -> some View {
-        HStack {
-            Text(title).fontWeight(.medium)
-            Spacer(minLength: 2)
-            if !detail.isEmpty { Text(detail) }
-        }.font(.system(size: 11)).foregroundStyle(PanelPalette.secondary)
+            .frame(height: Chrome.footerRow)
+            .padding(.horizontal, 16)
+            .padding(.vertical, Chrome.footerPad)
+        }
     }
 
     private func banner(_ text: String) -> some View {

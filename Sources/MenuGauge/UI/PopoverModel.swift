@@ -1,8 +1,6 @@
 import AppKit
 import Combine
 
-enum PopoverPage: Int, CaseIterable { case overview, configuration }
-
 struct MetricDescriptor: Identifiable {
     let id: String
     let title: String
@@ -13,7 +11,9 @@ struct MetricDescriptor: Identifiable {
         .init(id: "gpu", title: "GPU", symbol: "cpu"),
         .init(id: "memory", title: L10n.tr(.memory), symbol: "memorychip"),
         .init(id: "disk", title: L10n.tr(.disk), symbol: "internaldrive"),
-        .init(id: "temperature", title: L10n.tr(.temperature), symbol: "thermometer.medium"),
+        .init(id: "temperature",
+              title: AppEdition.isAppStore ? L10n.tr(.thermalState) : L10n.tr(.temperature),
+              symbol: "thermometer.medium"),
         .init(id: "fan", title: L10n.tr(.fan), symbol: "fan"),
         .init(id: "network", title: L10n.tr(.network), symbol: "arrow.up.arrow.down"),
     ] }
@@ -75,22 +75,22 @@ enum MetricCatalog {
     }
 }
 
-/// Updated only while the popover is open. Menu-bar drawing remains independent.
+/// Shared by the menu-bar panel and the Settings window.
+/// Menu-bar drawing reads the providers directly and does not use this model.
 final class PopoverModel: ObservableObject {
     @Published var readings: [String: MetricReading] = [:]
     @Published var selectedIDs: [String] = []
     @Published var hiddenCount = 0
     @Published var loginState: LoginItem.State = .disabled
     @Published var loginError: String?
-    @Published var page: PopoverPage = .overview
-    @Published var height: CGFloat = 302
+    @Published var height: CGFloat = 330
     /// Measured height of the scrollable page content, reported by the view.
     /// 0 until the first layout pass.
     @Published var contentHeight: CGFloat = 0
     var onSelection: ((String, Bool) -> Void)?
     var onLogin: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
-    var onPage: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
 }
 
 enum MetricFormat {
