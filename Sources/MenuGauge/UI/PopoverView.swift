@@ -5,7 +5,6 @@ enum PanelPalette {
     static let card = adaptive(0xFFFFFF, 0x2B2D31)
     static let secondary = adaptive(0x626972, 0xADB3BC)
     static let line = adaptive(0xDFE2E7, 0x41444B)
-    static let track = adaptive(0xE8EBEF, 0x3A3E44)
     static let accent = adaptive(0x147A67, 0x71D5BA)
     static let tint = adaptive(0xE4F2ED, 0x293F39)
 
@@ -19,6 +18,42 @@ enum PanelPalette {
     }
 }
 
+/// Bezel, control size, and tint of the Settings “Quit MenuGauge” button.
+/// The menu panel’s gear and power buttons use it too, so normal, hover,
+/// and pressed colors stay on AppKit’s bordered button in light and dark.
+struct MenuGaugeButtonChrome: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+            .tint(PanelPalette.accent)
+    }
+}
+
+extension View {
+    func menuGaugeButtonChrome() -> some View {
+        modifier(MenuGaugeButtonChrome())
+    }
+}
+
+/// Same symbol size inside `MenuGaugeButtonChrome`, so gear and power match.
+struct MenuGaugeIconButton: View {
+    var systemName: String
+    var label: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .medium))
+        }
+        .menuGaugeButtonChrome()
+        .help(label)
+        .accessibilityLabel(label)
+        .focusable(false)
+    }
+}
+
 struct PopoverView: View {
     @ObservedObject var model: PopoverModel
 
@@ -27,10 +62,10 @@ struct PopoverView: View {
     /// so the popover does not grow a scrollbar for a point of padding.
     private enum Chrome {
         static let headerTop: CGFloat = 10
-        static let headerRow: CGFloat = 28
+        static let headerRow: CGFloat = 32
         static let headerBottom: CGFloat = 8
         static let rule: CGFloat = 1
-        static let footerRow: CGFloat = 28
+        static let footerRow: CGFloat = 32
         static let footerPad: CGFloat = 8
         static var height: CGFloat {
             headerTop + headerRow + headerBottom + rule + rule + footerPad * 2 + footerRow
@@ -70,16 +105,9 @@ struct PopoverView: View {
                 Text("MenuGauge")
                     .font(.system(size: 14, weight: .semibold))
                 Spacer(minLength: 8)
-                Button { model.onOpenSettings?() } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(PanelPalette.secondary)
-                        .frame(width: Chrome.headerRow, height: Chrome.headerRow)
-                        .background(PanelPalette.track, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                MenuGaugeIconButton(systemName: "gearshape", label: L10n.tr(.settings)) {
+                    model.onOpenSettings?()
                 }
-                .buttonStyle(.plain)
-                .focusable(false)
-                .accessibilityLabel(L10n.tr(.settings))
             }
             .frame(height: Chrome.headerRow)
             .padding(.horizontal, 16)
@@ -233,17 +261,9 @@ struct PopoverView: View {
             Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
             HStack {
                 Spacer(minLength: 0)
-                Button { model.onQuit?() } label: {
-                    Image(systemName: "power")
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(width: 14, height: 14)
+                MenuGaugeIconButton(systemName: "power", label: quitHelp) {
+                    model.onQuit?()
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .tint(PanelPalette.accent)
-                .focusable(false)
-                .help(quitHelp)
-                .accessibilityLabel(quitHelp)
             }
             .frame(height: Chrome.footerRow)
             .padding(.horizontal, 16)

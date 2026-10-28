@@ -59,6 +59,7 @@ struct SettingsView: View {
             HStack {
                 Spacer()
                 Button(L10n.tr(.quit), action: onQuit)
+                    .menuGaugeButtonChrome()
             }
             .padding(.horizontal, 20)
             .padding(.top, 4)
