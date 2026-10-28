@@ -177,6 +177,15 @@ final class SettingsWindowTests: XCTestCase {
         }
     }
 
+    func testPanelIconChromeIsPlainUntilHoverOrPress() {
+        XCTAssertEqual(MenuGaugeIconChrome.state(hovered: false, pressed: false), .plain)
+        XCTAssertEqual(MenuGaugeIconChrome.state(hovered: true, pressed: false), .hover)
+        XCTAssertEqual(MenuGaugeIconChrome.state(hovered: false, pressed: true), .pressed)
+        XCTAssertEqual(MenuGaugeIconChrome.state(hovered: true, pressed: true), .pressed)
+        XCTAssertEqual(MenuGaugeIconChrome.side, 28)
+        XCTAssertGreaterThan(MenuGaugeIconChrome.pressedOpacity, MenuGaugeIconChrome.hoverOpacity)
+    }
+
     func testTemperatureToggleNameFollowsTheEdition() {
         let title = MetricDescriptor.all.first { $0.id == "temperature" }?.title
         #if MAS

@@ -18,9 +18,7 @@ enum PanelPalette {
     }
 }
 
-/// Bezel, control size, and tint of the Settings “Quit MenuGauge” button.
-/// The menu panel’s gear and power buttons use it too, so normal, hover,
-/// and pressed colors stay on AppKit’s bordered button in light and dark.
+/// Bezel, control size, and tint of the Settings “Quit MenuGauge” button only.
 struct MenuGaugeButtonChrome: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -36,7 +34,52 @@ extension View {
     }
 }
 
-/// Same symbol size inside `MenuGaugeButtonChrome`, so gear and power match.
+/// Gear and power. Resting state is the bare accent glyph. Hover and pressed
+/// reuse the light-green and darker fills of the tinted bordered button,
+/// as a square of one shared size. `accent` is already light/dark adaptive.
+enum MenuGaugeIconChrome: Equatable {
+    case plain, hover, pressed
+
+    static let side: CGFloat = 28
+    static let corner: CGFloat = 7
+    /// Resting fill of a bordered button tinted with `PanelPalette.accent`.
+    static let hoverOpacity: CGFloat = 0.18
+    /// That button’s pressed fill, a darker green in both appearances.
+    static let pressedOpacity: CGFloat = 0.42
+
+    static func state(hovered: Bool, pressed: Bool) -> MenuGaugeIconChrome {
+        if pressed { return .pressed }
+        if hovered { return .hover }
+        return .plain
+    }
+
+    var fill: Color {
+        switch self {
+        case .plain: return .clear
+        case .hover: return PanelPalette.accent.opacity(Self.hoverOpacity)
+        case .pressed: return PanelPalette.accent.opacity(Self.pressedOpacity)
+        }
+    }
+}
+
+struct MenuGaugeIconButtonStyle: ButtonStyle {
+    @State private var hovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        let chrome = MenuGaugeIconChrome.state(hovered: hovered, pressed: configuration.isPressed)
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(PanelPalette.accent)
+            .frame(width: MenuGaugeIconChrome.side, height: MenuGaugeIconChrome.side)
+            .background {
+                RoundedRectangle(cornerRadius: MenuGaugeIconChrome.corner, style: .continuous)
+                    .fill(chrome.fill)
+            }
+            .contentShape(Rectangle())
+            .onHover { hovered = $0 }
+    }
+}
+
 struct MenuGaugeIconButton: View {
     var systemName: String
     var label: String
@@ -45,9 +88,8 @@ struct MenuGaugeIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .medium))
         }
-        .menuGaugeButtonChrome()
+        .buttonStyle(MenuGaugeIconButtonStyle())
         .help(label)
         .accessibilityLabel(label)
         .focusable(false)
