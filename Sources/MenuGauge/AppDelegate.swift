@@ -192,6 +192,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before any status item or window. A second process must not flash UI.
+        if yieldToExistingInstance() { return }
+        observeInstanceHandoff()
         // The open-application Apple event is only current during launch.
         launchedAtLogin = LoginLaunch.isCurrentEvent()
         sanitizeStoredSelection()
@@ -244,6 +247,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
         updateStatusBar()
         presentSettingsIfFirstLaunch()
+    }
+
+    /// Same bundle id, different PID: website build beside the App Store
+    /// build, `open -n`, or the executable launched directly. Ask the copy
+    /// that already has the menu-bar icon to show Settings, then exit
+    /// without building any UI. `--ui-snapshot` is not a second instance.
+    private func yieldToExistingInstance() -> Bool {
+        let current = NSRunningApplication.current
+        let peers = NSWorkspace.shared.runningApplications
+            .filter { !$0.isTerminated }
+            .map {
+                SingleInstancePeer(bundleIdentifier: $0.bundleIdentifier,
+                                   processIdentifier: $0.processIdentifier)
+            }
+        guard SingleInstance.shouldYield(
+            bundleIdentifier: current.bundleIdentifier,
+            currentPID: current.processIdentifier,
+            peers: peers,
+            arguments: CommandLine.arguments
+        ) else { return false }
+
+        let bundleIdentifier = current.bundleIdentifier
+        DistributedNotificationCenter.default().postNotificationName(
+            SingleInstance.handoffNotification,
+            object: bundleIdentifier,
+            userInfo: [SingleInstance.senderPIDKey: Int(current.processIdentifier)],
+            deliverImmediately: true)
+        for app in NSWorkspace.shared.runningApplications where
+            app.bundleIdentifier == bundleIdentifier &&
+            app.processIdentifier != current.processIdentifier &&
+            !app.isTerminated {
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
+        // `terminate` during didFinishLaunching can be ignored, and the
+        // quit path would otherwise present a confirmation. Exit with no UI.
+        exit(0)
+    }
+
+    /// Sandboxed copies of this bundle id can hear each other without a new
+    /// entitlement. Activation alone does not reopen the app, so Settings
+    /// is shown from here, the same path as `applicationShouldHandleReopen`.
+    private func observeInstanceHandoff() {
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(anotherInstanceRequestedSettings(_:)),
+            name: SingleInstance.handoffNotification,
+            object: Bundle.main.bundleIdentifier,
+            suspensionBehavior: .deliverImmediately)
+    }
+
+    @objc private func anotherInstanceRequestedSettings(_ notification: Notification) {
+        let sender = (notification.userInfo?[SingleInstance.senderPIDKey] as? NSNumber)?.int32Value
+        if sender == ProcessInfo.processInfo.processIdentifier { return }
+        showSettings()
     }
 
     /// A normal first launch shows Settings so the app is obviously running.

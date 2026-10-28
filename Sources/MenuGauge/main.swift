@@ -1,6 +1,8 @@
 import AppKit
 
 #if DEBUG
+// Leaves before the single-instance handoff, and that handoff also ignores
+// this flag, so a snapshot can render while MenuGauge is already running.
 if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshot"),
    CommandLine.arguments.indices.contains(flag + 1) {
     PopoverPreview.run(output: CommandLine.arguments[flag + 1])
