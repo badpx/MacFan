@@ -124,6 +124,14 @@ final class MenuBarSelectionTests: XCTestCase {
         XCTAssertFalse(metricsOnly.logoOverlapsWidgets)
     }
 
+    func testSelectionCapsuleIsSuppressedOnlyWhileTheButtonDrawsIt() {
+        XCTAssertTrue(StatusItemCapsule.suppressButtonHighlight(majorVersion: 13))
+        XCTAssertTrue(StatusItemCapsule.suppressButtonHighlight(majorVersion: 14))
+        XCTAssertTrue(StatusItemCapsule.suppressButtonHighlight(majorVersion: 26))
+        XCTAssertFalse(StatusItemCapsule.suppressButtonHighlight(majorVersion: 27))
+        XCTAssertFalse(StatusItemCapsule.suppressButtonHighlight(majorVersion: 28))
+    }
+
     func testSettingsFocusRingWaitsForTab() {
         var focus = SettingsFocusDecider()
         XCTAssertEqual(focus.decide(requestedView: true, userClickInside: false), .windowItself)

@@ -15,10 +15,21 @@ import SwiftUI
 /// logo, when it is on, stays to the left of the metrics and is the last
 /// thing left on screen.
 
-/// `NSStatusBarButton` paints a translucent rounded pill while it is
-/// highlighted: on mouse down, and for as long as a popover is shown from
-/// it. The status item owns the button instance, so the class is swapped
-/// in place (no stored properties — the object size must stay the same).
+/// On macOS 13–26 the selection capsule is painted by `NSStatusBarButton`
+/// while `isHighlighted` is true (mouse down, and the whole time a popover
+/// is shown from the button). `highlight(_:)` was the public control for
+/// that capsule. macOS 27 draws it in the menu bar for the status item's
+/// expanded-interface session instead; `highlight(true)` no longer creates
+/// the capsule (FB23330269), and forcing `isHighlighted` off does not
+/// remove it. The class swap is therefore applied only before macOS 27.
+enum StatusItemCapsule {
+    static func suppressButtonHighlight(majorVersion: Int) -> Bool {
+        majorVersion < 27
+    }
+}
+
+/// The status item owns the button instance, so the class is swapped in
+/// place. No stored properties: the object size must stay the same.
 /// Clicks, the popover anchor, and VoiceOver still use that same button.
 /// Glyphs keep their normal light/dark tint and are not inverted.
 private final class MenuBarStatusButton: NSStatusBarButton {
@@ -256,7 +267,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         launchedAtLogin = LoginLaunch.isCurrentEvent()
         sanitizeStoredSelection()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = statusItem.button {
+        if StatusItemCapsule.suppressButtonHighlight(
+            majorVersion: ProcessInfo.processInfo.operatingSystemVersion.majorVersion),
+           let button = statusItem.button {
             object_setClass(button, MenuBarStatusButton.self)
             // The cell would still swap in a highlighted background even
             // when the button reports it is not highlighted.
@@ -483,8 +496,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// Logo-only: the template image is the status button's image, in a
     /// square item, tinted for light and dark. With metrics, the gauge is
     /// drawn in the widget view and the button image is cleared — the cell
-    /// would otherwise center it over the text. The selection pill is
-    /// suppressed, so neither mode inverts its glyphs.
+    /// would otherwise center it over the text. Where the button still
+    /// owns the selection pill (macOS 13–26) that pill is suppressed, so
+    /// neither mode inverts its glyphs.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
         defer { syncPopover() }
