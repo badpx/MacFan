@@ -159,19 +159,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: Menu bar overflow (graceful degradation)
 
-    /// Selected widgets suppressed from the right end because the
-    /// system hid the status item when the menu bar ran out of room
-    /// (network, the widest, drops first). 0 = everything is shown.
-    private var hiddenWidgetCount = 0
-    /// Widgets rendered by the last updateStatusBar pass (0 = icon mode).
-    private var renderedWidgetCount = 0
-    /// Relayouts take about one tick to settle in WindowServer, so the
-    /// tick right after a resize must not trust the window position.
-    private var skipVisibilityCheck = false
-    /// A restore probe (one widget added back) is awaiting its check.
-    private var probeInFlight = false
-    /// Last restore-probe attempt; paces probes to one per 30 seconds.
-    private var lastProbeAttempt = Date.distantPast
+    /// Hide and restore decisions. AppKit still reports occlusion and
+    /// applies the status-item length; see `MenuBarOverflow`.
+    private var overflow = MenuBarOverflow()
     private let selectionKey = "menuBarMetrics"
     private var selectedIDs: [String] {
         get {
@@ -406,7 +396,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard force || popover.isShown || settings.isVisible else { return }
         panelModel.readings = readings
         panelModel.selectedIDs = selectedIDs
-        panelModel.hiddenCount = hiddenWidgetCount
+        panelModel.hiddenCount = overflow.hiddenWidgetCount
         panelModel.loginState = LoginItem.state
     }
 
@@ -432,20 +422,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let selectedParts = providers
             .filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.compact }
-        hiddenWidgetCount = min(hiddenWidgetCount, selectedParts.count)
+        overflow.clampHiddenCount(to: selectedParts.count)
         // Suppressed widgets drop off the right end first.
-        let parts = Array(selectedParts.dropLast(hiddenWidgetCount))
-        renderedWidgetCount = parts.count
+        let parts = Array(selectedParts.dropLast(overflow.hiddenWidgetCount))
 
         guard !StatusGauge.showsGauge(renderedMetricCount: parts.count) else {
             widgetsView?.removeFromSuperview()
             widgetsView = nil
             button.title = ""
             showGaugeImage()
-            if statusItem.length != NSStatusItem.squareLength {
+            let layoutChanged = statusItem.length != NSStatusItem.squareLength
+            if layoutChanged {
                 statusItem.length = NSStatusItem.squareLength
-                skipVisibilityCheck = true
             }
+            overflow.noteLayout(renderedCount: parts.count, layoutChanged: layoutChanged)
             return
         }
 
@@ -468,12 +458,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let width = view.relayout()
         let barHeight = NSStatusBar.system.thickness
         let length = width + 6
-        if view.frame.minX != 3 || view.frame.width != width || view.frame.height != barHeight
-            || statusItem.length != length {
+        let layoutChanged = view.frame.minX != 3 || view.frame.width != width
+            || view.frame.height != barHeight || statusItem.length != length
+        if layoutChanged {
             view.frame = NSRect(x: 3, y: 0, width: width, height: barHeight)
             statusItem.length = length
-            skipVisibilityCheck = true
         }
+        overflow.noteLayout(renderedCount: parts.count, layoutChanged: layoutChanged)
         view.needsDisplay = true
     }
 
@@ -501,25 +492,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// On detection, drop one more widget; on a successful restore
     /// probe, immediately try the next one.
     private func checkVisibilityAndDegrade() {
-        guard renderedWidgetCount > 0 else { return }
-        if skipVisibilityCheck {
-            skipVisibilityCheck = false
-            return
-        }
-        if statusItemIsVisible() {
-            if probeInFlight {
-                probeInFlight = false
-                NSLog("MenuGauge: restore probe succeeded, \(hiddenWidgetCount) widget(s) still hidden")
-                probeRestore(forced: true)
-            }
-            return
-        }
-        probeInFlight = false
-        hiddenWidgetCount += 1
-        // Freshly degraded: wait before probing again.
-        lastProbeAttempt = Date()
-        NSLog("MenuGauge: menu bar full, hiding rightmost widget (\(hiddenWidgetCount) hidden)")
-        updateStatusBar()
+        let outcome = overflow.checkVisibility(isVisible: statusItemIsVisible(), now: Date())
+        applyOverflow(outcome)
     }
 
     /// Tries to reveal one more suppressed widget. Fails safe: if the
@@ -529,14 +503,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func probeRestore(forced: Bool) {
-        guard hiddenWidgetCount > 0, !probeInFlight, !skipVisibilityCheck else { return }
-        let now = Date()
-        guard forced || now.timeIntervalSince(lastProbeAttempt) >= 30 else { return }
-        lastProbeAttempt = now
-        hiddenWidgetCount -= 1
-        probeInFlight = true
-        NSLog("MenuGauge: probing menu bar space (\(hiddenWidgetCount) widget(s) still hidden)")
-        updateStatusBar()
+        let outcome = overflow.probeRestore(forced: forced, now: Date())
+        applyOverflow(outcome)
+    }
+
+    private func applyOverflow(_ outcome: MenuBarOverflow.Outcome) {
+        for event in outcome.events {
+            switch event {
+            case .probeSucceeded(let stillHidden):
+                NSLog("MenuGauge: restore probe succeeded, \(stillHidden) widget(s) still hidden")
+            case .degraded(let hiddenCount):
+                NSLog("MenuGauge: menu bar full, hiding rightmost widget (\(hiddenCount) hidden)")
+            case .probing(let stillHidden):
+                NSLog("MenuGauge: probing menu bar space (\(stillHidden) widget(s) still hidden)")
+            }
+        }
+        if outcome.needsRelayout {
+            updateStatusBar()
+        }
     }
 
     /// Whether the status item is actually drawn in the menu bar.
@@ -561,8 +545,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if enabled { selection.append(id) }
         selectedIDs = selection
         panelModel.selectedIDs = selection
-        hiddenWidgetCount = 0
-        probeInFlight = false
+        overflow.resetForSelectionChange()
         updateStatusBar()
     }
 
