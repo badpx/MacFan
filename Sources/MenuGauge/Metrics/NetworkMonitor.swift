@@ -3,6 +3,11 @@ import Foundation
 /// Network throughput (down/up) computed from getifaddrs byte counters
 /// over physical interfaces (en*), sampled between two calls.
 ///
+/// Each interface keeps its own baseline (`NetworkCounterLedger`). A
+/// 32-bit rollover is applied per interface; a counter that drops by
+/// more than one plausible sample, or an interface that appears or
+/// disappears, does not produce a spike.
+///
 /// Some VPN/filter drivers (e.g. CorpLink) swallow inbound packets before
 /// the interface byte counters are incremented, leaving rx stuck at 0.
 /// When outbound traffic clearly flows while cumulative inbound stays at
@@ -12,7 +17,8 @@ final class NetworkMonitor: MetricProvider {
 
     let id = "network"
 
-    private var previous: (rx: UInt64, tx: UInt64, time: Date)?
+    private var ledger = NetworkCounterLedger()
+    private var lastSample: Date?
     private var cumulativeRx: UInt64 = 0
     private var cumulativeTx: UInt64 = 0
     private var inboundBroken = false
@@ -23,24 +29,24 @@ final class NetworkMonitor: MetricProvider {
         }
 
         let now = Date()
-        defer { previous = (counters.rx, counters.tx, now) }
-        guard let previous else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
+        let previousTime = lastSample
+        let delta = ledger.advance(to: counters)
+        lastSample = now
+        guard let previousTime else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
 
-        let elapsed = now.timeIntervalSince(previous.time)
+        let elapsed = now.timeIntervalSince(previousTime)
         guard elapsed > 0 else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
 
-        let rxDelta = counters.rx &- previous.rx
-        let txDelta = counters.tx &- previous.tx
-        cumulativeRx &+= rxDelta
-        cumulativeTx &+= txDelta
-        if rxDelta > 0 {
+        cumulativeRx &+= delta.rx
+        cumulativeTx &+= delta.tx
+        if delta.rx > 0 {
             inboundBroken = false
         } else if cumulativeRx == 0 && cumulativeTx > 512 * 1024 {
             inboundBroken = true
         }
 
-        let down = Double(rxDelta) / elapsed
-        let up = Double(txDelta) / elapsed
+        let down = Double(delta.rx) / elapsed
+        let up = Double(delta.tx) / elapsed
         let downText = Self.format(rate: down)
         let downCompact = Self.compactFormat(rate: down)
         return MetricReading(
@@ -55,13 +61,12 @@ final class NetworkMonitor: MetricProvider {
         )
     }
 
-    private func readCounters() -> (rx: UInt64, tx: UInt64)? {
+    private func readCounters() -> [String: NetworkInterfaceCounters]? {
         var head: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&head) == 0, let first = head else { return nil }
         defer { freeifaddrs(head) }
 
-        var rx: UInt64 = 0
-        var tx: UInt64 = 0
+        var counters: [String: NetworkInterfaceCounters] = [:]
         var cursor: UnsafeMutablePointer<ifaddrs>? = first
         while let current = cursor {
             defer { cursor = current.pointee.ifa_next }
@@ -72,11 +77,22 @@ final class NetworkMonitor: MetricProvider {
                   Int32(current.pointee.ifa_addr.pointee.sa_family) == AF_LINK,
                   let data = current.pointee.ifa_data else { continue }
 
+            // One AF_LINK record per name. These are cumulative counters,
+            // so a duplicate replaces the earlier reading instead of being
+            // added to it. The fields are u_int32_t; truncating is a no-op
+            // for that width and keeps the low 32 bits if the importer
+            // presents them as a wider unsigned integer.
             let ifData = data.assumingMemoryBound(to: if_data.self).pointee
-            rx &+= UInt64(ifData.ifi_ibytes)
-            tx &+= UInt64(ifData.ifi_obytes)
+            counters[name] = NetworkInterfaceCounters(
+                rx: Self.byteCounter(ifData.ifi_ibytes),
+                tx: Self.byteCounter(ifData.ifi_obytes)
+            )
         }
-        return (rx, tx)
+        return counters
+    }
+
+    private static func byteCounter<T: UnsignedInteger>(_ value: T) -> UInt32 {
+        UInt32(truncatingIfNeeded: value)
     }
 
     /// Decimal units (1K = 1000B, 1M = 1000K, 1G = 1000M), K minimum:
