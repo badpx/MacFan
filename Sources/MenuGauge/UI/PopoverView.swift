@@ -2,11 +2,11 @@ import SwiftUI
 
 enum PanelPalette {
     static let card = adaptive(0xFFFFFF, 0x2B2D31)
-    /// Experiment off: the metrics area is the same popover material as the
-    /// header, footer, and arrow. Set this to true to restore the lighter veil.
-    static let showsContentLift = false
-    /// White veil over the popover material. Unused while `showsContentLift`
-    /// is false.
+    /// Metrics sit on a light veil. Header and footer stay clear so they match
+    /// the popover arrow. Set this to false to try an all-material panel.
+    static let showsContentLift = true
+    /// White veil over the popover material. Applied when `showsContentLift`
+    /// is true.
     static let contentLift = Color(nsColor: NSColor(name: nil) { appearance in
         let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         return NSColor.white.withAlphaComponent(dark ? 0.07 : 0.62)
@@ -138,10 +138,11 @@ struct PopoverView: View {
         static let headerTop: CGFloat = 10
         static let headerRow: CGFloat = 32
         static let headerBottom: CGFloat = 8
+        static let rule: CGFloat = 1
         static let footerRow: CGFloat = 32
         static let footerPad: CGFloat = 8
         static var height: CGFloat {
-            headerTop + headerRow + headerBottom + footerPad * 2 + footerRow
+            headerTop + headerRow + headerBottom + rule + footerPad * 2 + footerRow + rule
         }
     }
 
@@ -184,6 +185,7 @@ struct PopoverView: View {
             .padding(.horizontal, 16)
             .padding(.top, Chrome.headerTop)
             .padding(.bottom, Chrome.headerBottom)
+            Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
         }
         .frame(maxWidth: .infinity)
     }
@@ -320,19 +322,22 @@ struct PopoverView: View {
     }
 
     private var footer: some View {
-        HStack {
-            MenuGaugeIconButton(systemName: "gearshape", label: L10n.tr(.settings)) {
-                model.onOpenSettings?()
+        VStack(spacing: 0) {
+            Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
+            HStack {
+                MenuGaugeIconButton(systemName: "gearshape", label: L10n.tr(.settings)) {
+                    model.onOpenSettings?()
+                }
+                Spacer(minLength: 0)
+                MenuGaugeIconButton(systemName: "power", label: quitHelp) {
+                    model.onQuit?()
+                }
             }
-            Spacer(minLength: 0)
-            MenuGaugeIconButton(systemName: "power", label: quitHelp) {
-                model.onQuit?()
-            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Chrome.footerRow)
+            .padding(.horizontal, 16)
+            .padding(.vertical, Chrome.footerPad)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: Chrome.footerRow)
-        .padding(.horizontal, 16)
-        .padding(.vertical, Chrome.footerPad)
     }
 
     /// Spoken name and tooltip. ⌘Q still quits; the button itself is only the power icon.
