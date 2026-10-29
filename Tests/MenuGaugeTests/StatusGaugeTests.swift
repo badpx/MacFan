@@ -52,11 +52,14 @@ final class StatusGaugeTests: XCTestCase {
         XCTAssertGreaterThan(gap, 8)
     }
 
-    func testGaugeIsHiddenWhileAnyMetricIsDrawn() {
-        XCTAssertTrue(StatusGauge.showsGauge(renderedMetricCount: 0))
-        XCTAssertFalse(StatusGauge.showsGauge(renderedMetricCount: 1))
-        XCTAssertFalse(StatusGauge.showsGauge(renderedMetricCount: 4))
-        XCTAssertTrue(StatusGauge.showsGauge(renderedMetricCount: -1))
+    func testLogoIsOptionalBesideMetricsAndFillsAnEmptyBar() {
+        XCTAssertFalse(MenuBarDisplay.showsLogo(logoSelected: false, renderedMetricCount: 1))
+        XCTAssertFalse(MenuBarDisplay.showsLogo(logoSelected: false, renderedMetricCount: 4))
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: true, renderedMetricCount: 1))
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: true, renderedMetricCount: 4))
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: false, renderedMetricCount: 0))
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: true, renderedMetricCount: 0))
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: false, renderedMetricCount: -1))
     }
 
     func testMenuBarImageIsATemplateFillingTheStatusSlot() {

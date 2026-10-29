@@ -11,13 +11,15 @@ final class MenuBarOverflowTests: XCTestCase {
         selected: Int,
         visible: Bool,
         at now: Date,
-        layoutChanged: Bool
+        layoutChanged: Bool,
+        canHideAnotherMetric: Bool = true
     ) -> (check: MenuBarOverflow.Outcome, probe: MenuBarOverflow.Outcome) {
         overflow.clampHiddenCount(to: selected)
         overflow.noteLayout(
             renderedCount: selected - overflow.hiddenWidgetCount,
             layoutChanged: layoutChanged)
-        let check = overflow.checkVisibility(isVisible: visible, now: now)
+        let check = overflow.checkVisibility(isVisible: visible, now: now,
+                                              canHideAnotherMetric: canHideAnotherMetric)
         if check.needsRelayout {
             overflow.clampHiddenCount(to: selected)
             overflow.noteLayout(
@@ -182,5 +184,43 @@ final class MenuBarOverflowTests: XCTestCase {
         XCTAssertFalse(overflow.probeInFlight)
         XCTAssertTrue(overflow.skipVisibilityCheck)
         XCTAssertEqual(overflow.lastProbeAttempt, clock)
+    }
+
+    func testCrowdedBarKeepsTheLastMetricWhenTheLogoIsOff() {
+        var overflow = MenuBarOverflow()
+        var now = Date(timeIntervalSinceReferenceDate: 3_000_000)
+        _ = refresh(&overflow, selected: 1, visible: false, at: now,
+                    layoutChanged: true, canHideAnotherMetric: false)
+        XCTAssertEqual(overflow.hiddenWidgetCount, 0)
+        XCTAssertEqual(overflow.renderedWidgetCount, 1)
+
+        now += 2
+        let blocked = refresh(&overflow, selected: 1, visible: false, at: now,
+                              layoutChanged: false, canHideAnotherMetric: false)
+        XCTAssertEqual(blocked.check, MenuBarOverflow.Outcome.none)
+        XCTAssertFalse(blocked.probe.needsRelayout)
+        XCTAssertEqual(overflow.hiddenWidgetCount, 0)
+        XCTAssertEqual(overflow.renderedWidgetCount, 1)
+    }
+
+    func testLogoStaysUpWhenOverflowHidesTheLastMetric() {
+        var overflow = MenuBarOverflow()
+        var now = Date(timeIntervalSinceReferenceDate: 4_000_000)
+        _ = refresh(&overflow, selected: 1, visible: true, at: now, layoutChanged: true)
+        now += 2
+        let hidden = refresh(&overflow, selected: 1, visible: false, at: now,
+                             layoutChanged: false, canHideAnotherMetric: true)
+        XCTAssertEqual(hidden.check.events, [.degraded(hiddenCount: 1)])
+        XCTAssertEqual(overflow.renderedWidgetCount, 0)
+        XCTAssertTrue(overflow.skipVisibilityCheck)
+
+        now += 2
+        let icon = refresh(&overflow, selected: 1, visible: true, at: now, layoutChanged: false)
+        XCTAssertFalse(overflow.skipVisibilityCheck)
+        XCTAssertEqual(overflow.hiddenWidgetCount, 1)
+        XCTAssertEqual(icon.probe.needsRelayout, false)
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: true, renderedMetricCount: 0))
+        XCTAssertTrue(MenuBarDisplay.canHideAnotherMetric(logoSelected: true, visibleMetricCount: 1))
+        XCTAssertFalse(MenuBarDisplay.canHideAnotherMetric(logoSelected: false, visibleMetricCount: 1))
     }
 }

@@ -65,12 +65,15 @@ struct MenuBarOverflow: Equatable {
 
     /// Per-tick overflow handling, after `noteLayout`.
     ///
-    /// Icon mode (nothing left to draw) still has to clear the settle
-    /// flag. The length change that hid the last widget sets it, and the
-    /// non-zero branch below is otherwise the only place that clears it.
-    /// Leaving it set blocks `probeRestore` forever, so metrics would not
-    /// come back when the menu bar frees up.
-    mutating func checkVisibility(isVisible: Bool, now: Date) -> Outcome {
+    /// Icon mode (no metric drawn; the logo may still be up) still has to
+    /// clear the settle flag. The length change that hid the last metric
+    /// sets it, and the non-zero branch below is otherwise the only place
+    /// that clears it. Leaving it set blocks `probeRestore` forever.
+    ///
+    /// `canHideAnotherMetric` is false when hiding one more would empty
+    /// the status item: the logo is off and only one metric is left.
+    /// When the logo is on, the last metric may still be hidden.
+    mutating func checkVisibility(isVisible: Bool, now: Date, canHideAnotherMetric: Bool = true) -> Outcome {
         guard renderedWidgetCount > 0 else {
             skipVisibilityCheck = false
             return Outcome.none
@@ -86,6 +89,10 @@ struct MenuBarOverflow: Equatable {
             var outcome = probeRestore(forced: true, now: now)
             outcome.events.insert(.probeSucceeded(stillHidden: stillHidden), at: 0)
             return outcome
+        }
+        guard canHideAnotherMetric else {
+            probeInFlight = false
+            return Outcome.none
         }
         probeInFlight = false
         hiddenWidgetCount += 1
