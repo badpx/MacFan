@@ -203,7 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         popover.delegate = self
-        popover.contentViewController = NSHostingController(rootView: PopoverView(model: panelModel))
+        popover.contentViewController = PopoverHostingController(rootView: PopoverView(model: panelModel))
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
         gauge.onUpdate = { [weak self] in self?.applyGaugeAppearance() }
