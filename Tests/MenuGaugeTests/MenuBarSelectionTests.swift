@@ -86,10 +86,10 @@ final class MenuBarSelectionTests: XCTestCase {
         XCTAssertFalse(store.contains(MetricCatalog.fanID))
         XCTAssertTrue(direct.contains(MetricCatalog.fanID))
 
-        XCTAssertTrue(MenuBarDisplay.canHideAnotherMetric(logoSelected: true, visibleMetricCount: 1))
-        XCTAssertFalse(MenuBarDisplay.canHideAnotherMetric(logoSelected: false, visibleMetricCount: 1))
-        XCTAssertTrue(MenuBarDisplay.canHideAnotherMetric(logoSelected: false, visibleMetricCount: 2))
-        XCTAssertFalse(MenuBarDisplay.canHideAnotherMetric(logoSelected: true, visibleMetricCount: 0))
+        XCTAssertTrue(MenuBarDisplay.canHideAnotherMetric(visibleMetricCount: 1))
+        XCTAssertTrue(MenuBarDisplay.canHideAnotherMetric(visibleMetricCount: 2))
+        XCTAssertFalse(MenuBarDisplay.canHideAnotherMetric(visibleMetricCount: 0))
+        XCTAssertTrue(MenuBarDisplay.showsLogo(logoSelected: false, renderedMetricCount: 0))
     }
 
     func testLogoSlotSitsLeftOfTheMetricsWithoutOverlapping() {

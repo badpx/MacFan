@@ -16,14 +16,12 @@ final class NetworkCounterLedgerTests: XCTestCase {
         ])
         XCTAssertEqual(steady, NetworkByteDelta(rx: 530, tx: 30))
 
-        // A monotonic jump past the wrap cap is real traffic. Only a
-        // backwards jump is limited.
-        let previous: UInt32 = 10
-        let current = previous + UInt32(3_500_000_000)
-        XCTAssertGreaterThan(UInt64(current - previous), NetworkCounterLedger.maxPlausibleWrap)
+        // 64-bit counters keep counting past 4 GiB. The increase is real.
+        let previous: UInt64 = 5_000_000_000
+        let current = previous + 1_500
         XCTAssertEqual(
             NetworkCounterLedger.counterDelta(current: current, previous: previous),
-            UInt64(current - previous))
+            1_500)
     }
 
     func testInterfaceAddedContributesNothingOnFirstSight() {
@@ -70,58 +68,54 @@ final class NetworkCounterLedgerTests: XCTestCase {
         XCTAssertEqual(returned, NetworkByteDelta(rx: 5, tx: 0))
     }
 
-    func testThirtyTwoBitWraparoundIsCountedPerInterface() {
-        let nearTop = UInt32.max - 100
-        let traffic: UInt32 = 2_500_000_000
-        let wrapped = nearTop &+ traffic
-        XCTAssertLessThan(wrapped, nearTop)
+    func testLargeCounterResetContributesNothing() {
+        // A 32-bit reading of this drop used to look like a wrap of
+        // 2_294_967_796 bytes. With 64-bit counters it is a reset.
         XCTAssertEqual(
-            NetworkCounterLedger.counterDelta(current: wrapped, previous: nearTop),
-            UInt64(traffic))
+            NetworkCounterLedger.counterDelta(current: 500, previous: 2_000_000_000),
+            0)
+        XCTAssertEqual(
+            NetworkCounterLedger.counterDelta(current: 4_000, previous: 5_000),
+            0)
 
         var ledger = NetworkCounterLedger()
         _ = ledger.advance(to: [
-            "en0": NetworkInterfaceCounters(rx: 0xFFFF_F000, tx: 100),
-            "en1": NetworkInterfaceCounters(rx: 1_000, tx: 0xFFFF_0000),
-        ])
-        let delta = ledger.advance(to: [
-            "en0": NetworkInterfaceCounters(rx: 0x0000_0C00, tx: 150),
-            "en1": NetworkInterfaceCounters(rx: 1_250, tx: 0x0001_0000),
-        ])
-        // en0 rx: 0x1000 + 0x0C00 = 7168. en1 tx: 0x10000 + 0x10000 = 131072.
-        XCTAssertEqual(delta, NetworkByteDelta(rx: 7_168 + 250, tx: 50 + 131_072))
-
-        let previous = UInt32.max
-        let atLimit = previous &+ UInt32(truncatingIfNeeded: NetworkCounterLedger.maxPlausibleWrap)
-        XCTAssertEqual(
-            NetworkCounterLedger.counterDelta(current: atLimit, previous: previous),
-            NetworkCounterLedger.maxPlausibleWrap)
-    }
-
-    func testCounterResetOrDecreaseContributesNothing() {
-        let previous: UInt32 = 80_000_000
-        let restarted: UInt32 = 500
-        let modular = UInt64(restarted &- previous)
-        XCTAssertGreaterThan(modular, NetworkCounterLedger.maxPlausibleWrap)
-        XCTAssertEqual(NetworkCounterLedger.counterDelta(current: restarted, previous: previous), 0)
-        XCTAssertEqual(NetworkCounterLedger.counterDelta(current: 4_000, previous: 5_000), 0)
-
-        let past = UInt32.max &+ UInt32(truncatingIfNeeded: NetworkCounterLedger.maxPlausibleWrap + 1)
-        XCTAssertEqual(NetworkCounterLedger.counterDelta(current: past, previous: .max), 0)
-
-        var ledger = NetworkCounterLedger()
-        _ = ledger.advance(to: [
-            "en0": NetworkInterfaceCounters(rx: previous, tx: 1_000),
+            "en0": NetworkInterfaceCounters(rx: 2_000_000_000, tx: 1_000),
         ])
         let reset = ledger.advance(to: [
-            "en0": NetworkInterfaceCounters(rx: restarted, tx: 1_100),
-        ])
+            "en0": NetworkInterfaceCounters(rx: 500, tx: 1_100),
+        ], elapsed: 2)
         XCTAssertEqual(reset, NetworkByteDelta(rx: 0, tx: 100))
+        XCTAssertEqual(ledger.baseline["en0"]?.rx, 500)
 
-        // The restarted value is the new baseline, so the next sample is real.
         let followed = ledger.advance(to: [
-            "en0": NetworkInterfaceCounters(rx: restarted + 300, tx: 1_100),
-        ])
+            "en0": NetworkInterfaceCounters(rx: 800, tx: 1_100),
+        ], elapsed: 2)
         XCTAssertEqual(followed, NetworkByteDelta(rx: 300, tx: 0))
+    }
+
+    func testBaudrateCapTreatsAnImpossibleJumpAsAReset() {
+        // 1 Gbit/s over 2s, times the margin, is 500_000_000 bytes.
+        let gigabit: UInt64 = 1_000_000_000
+        let elapsed: TimeInterval = 2
+        let within = NetworkCounterLedger.counterDelta(
+            current: 100_000_000, previous: 0, baudrate: gigabit, elapsed: elapsed)
+        XCTAssertEqual(within, 100_000_000)
+        let over = NetworkCounterLedger.counterDelta(
+            current: 600_000_000, previous: 0, baudrate: gigabit, elapsed: elapsed)
+        XCTAssertEqual(over, 0)
+        // Unknown link speed does not cap a large forward jump.
+        XCTAssertEqual(
+            NetworkCounterLedger.counterDelta(current: 600_000_000, previous: 0, baudrate: 0, elapsed: elapsed),
+            600_000_000)
+
+        var ledger = NetworkCounterLedger()
+        _ = ledger.advance(to: [
+            "en0": NetworkInterfaceCounters(rx: 1_000, tx: 1_000, baudrate: gigabit),
+        ])
+        let capped = ledger.advance(to: [
+            "en0": NetworkInterfaceCounters(rx: 1_000 + 600_000_000, tx: 1_050, baudrate: gigabit),
+        ], elapsed: elapsed)
+        XCTAssertEqual(capped, NetworkByteDelta(rx: 0, tx: 50))
     }
 }

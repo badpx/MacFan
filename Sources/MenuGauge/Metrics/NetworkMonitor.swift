@@ -1,13 +1,15 @@
 import AppKit
 import Foundation
 
-/// Network throughput (down/up) computed from getifaddrs byte counters
-/// over physical interfaces (en*), sampled between two calls.
+/// Network throughput (down/up) over physical interfaces (en*).
 ///
-/// Each interface keeps its own baseline (`NetworkCounterLedger`). A
-/// 32-bit rollover is applied per interface; a counter that drops by
-/// more than one plausible sample, or an interface that appears or
-/// disappears, does not produce a spike.
+/// Counters come from `sysctl` `NET_RT_IFLIST2` (`if_data64`, 64-bit
+/// `ifi_ibytes` / `ifi_obytes`). That call is public and needs no
+/// sandbox entitlement. If it fails, `getifaddrs` supplies the 32-bit
+/// `if_data` counters zero-extended to 64-bit; a decrease is then a
+/// reset rather than a guessed 4 GiB wrap, so one sample can under-count
+/// across a rollover but cannot show a multi-gigabyte spike.
+/// Each interface keeps its own baseline (`NetworkCounterLedger`).
 ///
 /// Some VPN/filter drivers (e.g. CorpLink) swallow inbound packets before
 /// the interface byte counters are incremented, leaving rx stuck at 0.
@@ -31,12 +33,12 @@ final class NetworkMonitor: MetricProvider {
 
         let now = Date()
         let previousTime = lastSample
-        let delta = ledger.advance(to: counters)
+        let elapsed = previousTime.map { now.timeIntervalSince($0) } ?? 0
+        let delta = ledger.advance(to: counters, elapsed: elapsed)
         lastSample = now
-        guard let previousTime else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
-
-        let elapsed = now.timeIntervalSince(previousTime)
-        guard elapsed > 0 else { return MetricReading(menu: "\(L10n.tr(.network)): --") }
+        guard previousTime != nil, elapsed > 0 else {
+            return MetricReading(menu: "\(L10n.tr(.network)): --")
+        }
 
         cumulativeRx &+= delta.rx
         cumulativeTx &+= delta.tx
@@ -65,6 +67,59 @@ final class NetworkMonitor: MetricProvider {
     }
 
     private func readCounters() -> [String: NetworkInterfaceCounters]? {
+        if let counters = Self.readInterfaceCounters64() {
+            return counters
+        }
+        return Self.readInterfaceCounters32()
+    }
+
+    /// 64-bit counters from `NET_RT_IFLIST2`. Nil only when `sysctl` fails;
+    /// an empty map means the call worked and no `en*` interface is up.
+    private static func readInterfaceCounters64() -> [String: NetworkInterfaceCounters]? {
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, Int32(NET_RT_IFLIST2), 0]
+        for _ in 0..<2 {
+            var length = 0
+            if sysctl(&mib, u_int(mib.count), nil, &length, nil, 0) != 0 || length <= 0 {
+                return nil
+            }
+            let buffer = UnsafeMutableRawPointer.allocate(
+                byteCount: length, alignment: MemoryLayout<if_msghdr2>.alignment)
+            defer { buffer.deallocate() }
+            if sysctl(&mib, u_int(mib.count), buffer, &length, nil, 0) != 0 {
+                continue
+            }
+            return parseInterfaceList2(buffer, length: length)
+        }
+        return nil
+    }
+
+    private static func parseInterfaceList2(_ buffer: UnsafeMutableRawPointer,
+                                            length: Int) -> [String: NetworkInterfaceCounters] {
+        var counters: [String: NetworkInterfaceCounters] = [:]
+        var offset = 0
+        while offset + MemoryLayout<if_msghdr>.size <= length {
+            let header = buffer.advanced(by: offset)
+                .assumingMemoryBound(to: if_msghdr.self).pointee
+            let messageLength = Int(header.ifm_msglen)
+            if messageLength <= 0 { break }
+            if Int32(header.ifm_type) == RTM_IFINFO2,
+               offset + MemoryLayout<if_msghdr2>.size <= length {
+                let info = buffer.advanced(by: offset)
+                    .assumingMemoryBound(to: if_msghdr2.self).pointee
+                if let name = interfaceName(index: info.ifm_index), name.hasPrefix("en") {
+                    let data = info.ifm_data
+                    counters[name] = NetworkInterfaceCounters(
+                        rx: data.ifi_ibytes, tx: data.ifi_obytes, baudrate: data.ifi_baudrate)
+                }
+            }
+            offset += messageLength
+        }
+        return counters
+    }
+
+    /// 32-bit `getifaddrs` counters, widened. A later decrease (including a
+    /// real 4 GiB rollover) is a reset, not a wrap.
+    private static func readInterfaceCounters32() -> [String: NetworkInterfaceCounters]? {
         var head: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&head) == 0, let first = head else { return nil }
         defer { freeifaddrs(head) }
@@ -75,27 +130,28 @@ final class NetworkMonitor: MetricProvider {
             defer { cursor = current.pointee.ifa_next }
 
             let name = String(cString: current.pointee.ifa_name)
-            // Physical interfaces only: en0 (Wi-Fi), en1... (Ethernet...).
             guard name.hasPrefix("en"),
                   Int32(current.pointee.ifa_addr.pointee.sa_family) == AF_LINK,
                   let data = current.pointee.ifa_data else { continue }
 
-            // One AF_LINK record per name. These are cumulative counters,
-            // so a duplicate replaces the earlier reading instead of being
-            // added to it. The fields are u_int32_t; truncating is a no-op
-            // for that width and keeps the low 32 bits if the importer
-            // presents them as a wider unsigned integer.
             let ifData = data.assumingMemoryBound(to: if_data.self).pointee
             counters[name] = NetworkInterfaceCounters(
-                rx: Self.byteCounter(ifData.ifi_ibytes),
-                tx: Self.byteCounter(ifData.ifi_obytes)
-            )
+                rx: UInt64(ifData.ifi_ibytes),
+                tx: UInt64(ifData.ifi_obytes),
+                baudrate: UInt64(ifData.ifi_baudrate))
         }
         return counters
     }
 
-    private static func byteCounter<T: UnsignedInteger>(_ value: T) -> UInt32 {
-        UInt32(truncatingIfNeeded: value)
+    private static func interfaceName<Index: BinaryInteger>(index: Index) -> String? {
+        var buffer = [CChar](repeating: 0, count: Int(IF_NAMESIZE))
+        let name: String? = buffer.withUnsafeMutableBufferPointer { pointer in
+            guard let base = pointer.baseAddress,
+                  if_indextoname(UInt32(truncatingIfNeeded: index), base) != nil else { return nil }
+            return String(cString: base)
+        }
+        guard let name, !name.isEmpty else { return nil }
+        return name
     }
 
     /// Decimal units (1K = 1000B, 1M = 1000K, 1G = 1000M), K minimum:

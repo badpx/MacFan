@@ -601,7 +601,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// probe, immediately try the next one.
     private func checkVisibilityAndDegrade() {
         let canHide = MenuBarDisplay.canHideAnotherMetric(
-            logoSelected: selectedIDs.contains(MetricCatalog.logoID),
             visibleMetricCount: overflow.renderedWidgetCount)
         let outcome = overflow.checkVisibility(isVisible: statusItemIsVisible(),
                                                 now: Date(),

@@ -67,16 +67,20 @@ enum MenuBarSelection {
 /// Whether the gauge image is drawn, and whether overflow may drop another metric.
 enum MenuBarDisplay {
     /// The logo is on the left when the user selected it. It is also drawn
-    /// when no metric is left to draw, so a status item never goes blank
-    /// (a missing reading, not a saved empty selection).
+    /// when overflow has hidden every metric, so the status item stays on
+    /// screen as the square gauge. That fallback is not written back to
+    /// the saved selection — the "at least one item" rule still applies
+    /// to toggles.
     static func showsLogo(logoSelected: Bool, renderedMetricCount: Int) -> Bool {
         logoSelected || renderedMetricCount <= 0
     }
 
-    /// Metrics drop from the right. The logo, when it is on, stays after
-    /// the last metric. When it is off, the last metric stays instead.
-    static func canHideAnotherMetric(logoSelected: Bool, visibleMetricCount: Int) -> Bool {
-        visibleMetricCount > 0 && (logoSelected || visibleMetricCount > 1)
+    /// Any visible metric may be hidden, including the last one. The
+    /// square logo then stands in until a probe brings the metric back.
+    /// Leaving the last metric up when it does not fit parks the whole
+    /// status item off-screen, and with nothing hidden a probe never runs.
+    static func canHideAnotherMetric(visibleMetricCount: Int) -> Bool {
+        visibleMetricCount > 0
     }
 }
 

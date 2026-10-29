@@ -70,9 +70,9 @@ struct MenuBarOverflow: Equatable {
     /// sets it, and the non-zero branch below is otherwise the only place
     /// that clears it. Leaving it set blocks `probeRestore` forever.
     ///
-    /// `canHideAnotherMetric` is false when hiding one more would empty
-    /// the status item: the logo is off and only one metric is left.
-    /// When the logo is on, the last metric may still be hidden.
+    /// `canHideAnotherMetric` is false only when nothing is drawn. Hiding
+    /// the last metric falls back to the square logo; the probe brings
+    /// the metric back when the bar has room again.
     mutating func checkVisibility(isVisible: Bool, now: Date, canHideAnotherMetric: Bool = true) -> Outcome {
         guard renderedWidgetCount > 0 else {
             skipVisibilityCheck = false
