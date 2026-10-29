@@ -218,8 +218,8 @@ struct PopoverView: View {
     /// Direct edition shows °C. The App Store edition stores a thermal
     /// state instead, and must not fall through to "N/A" for a missing scalar.
     private var temperatureValue: String {
-        if case .thermal(let level) = model.readings["temperature"]?.value {
-            return L10n.tr(level.labelKey)
+        if case .thermal(let pressure) = model.readings["temperature"]?.value {
+            return L10n.tr(pressure.labelKey)
         }
         guard let scalar = model.readings["temperature"]?.value?.scalar else { return "N/A" }
         return MetricFormat.number(scalar, decimals: 0) + "°C"

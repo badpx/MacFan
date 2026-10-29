@@ -56,12 +56,12 @@ final class TemperatureMonitorTests: XCTestCase {
     }
 
     func testAppStoreThermalReadingIsNotADegreeValue() {
-        let reading = TemperatureMonitor.thermalReading(level: .critical)
-        guard case .thermal(let level) = reading.value else {
-            return XCTFail("Expected a thermal-state reading")
+        let reading = TemperatureMonitor.thermalReading(pressure: .sleeping)
+        guard case .thermal(let pressure) = reading.value else {
+            return XCTFail("Expected a thermal-pressure reading")
         }
-        XCTAssertEqual(level, .critical)
-        XCTAssertEqual(reading.heat, ThermalLevel.critical.heat)
+        XCTAssertEqual(pressure, .sleeping)
+        XCTAssertEqual(reading.heat, ThermalPressure.sleeping.heat)
         XCTAssertEqual(reading.compact?.top, "MAX")
         XCTAssertEqual(reading.compact?.bottom, "TEMP")
         XCTAssertNil(reading.value?.scalar)
@@ -69,13 +69,15 @@ final class TemperatureMonitorTests: XCTestCase {
     }
 
     func testThermalRampMatchesSeverity() {
-        XCTAssertNil(ThermalLevel.nominal.heat)
-        XCTAssertEqual(ThermalLevel.fair.heat, 0.35)
-        XCTAssertEqual(ThermalLevel.serious.heat, 0.7)
-        XCTAssertEqual(ThermalLevel.critical.heat, 1)
-        XCTAssertEqual(ThermalLevel.nominal.compactToken, "OK")
-        XCTAssertEqual(ThermalLevel.fair.compactToken, "MID")
-        XCTAssertEqual(ThermalLevel.serious.compactToken, "HOT")
-        XCTAssertEqual(ThermalLevel.critical.compactToken, "MAX")
+        XCTAssertNil(ThermalPressure.nominal.heat)
+        XCTAssertEqual(ThermalPressure.moderate.heat, 0.35)
+        XCTAssertEqual(ThermalPressure.heavy.heat, 0.6)
+        XCTAssertEqual(ThermalPressure.trapping.heat, 0.85)
+        XCTAssertEqual(ThermalPressure.sleeping.heat, 1)
+        XCTAssertEqual(ThermalPressure.nominal.compactToken, "OK")
+        XCTAssertEqual(ThermalPressure.moderate.compactToken, "MID")
+        XCTAssertEqual(ThermalPressure.heavy.compactToken, "HI")
+        XCTAssertEqual(ThermalPressure.trapping.compactToken, "HOT")
+        XCTAssertEqual(ThermalPressure.sleeping.compactToken, "MAX")
     }
 }

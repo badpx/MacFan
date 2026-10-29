@@ -19,7 +19,7 @@ final class TemperatureMonitor: MetricProvider {
 
     func sample() -> MetricReading {
         #if MAS
-        return Self.thermalReading(level: .current)
+        return Self.thermalReading(pressure: .current)
         #else
         guard let temperature = Self.cpuTemperature(chipName: chipName, read: { smc?.temperature($0) }) else {
             return MetricReading(menu: "\(L10n.tr(.temperature)): --")
@@ -37,13 +37,13 @@ final class TemperatureMonitor: MetricProvider {
 
     /// App Store stand-in for °C. The direct edition does not use this in
     /// `sample()`; tests lock the wording and the heat ramp.
-    static func thermalReading(level: ThermalLevel) -> MetricReading {
-        MetricReading(menu: "\(L10n.tr(.temperature)): \(L10n.tr(level.labelKey))",
-                      compact: CompactReading(top: level.compactToken,
+    static func thermalReading(pressure: ThermalPressure) -> MetricReading {
+        MetricReading(menu: "\(L10n.tr(.temperature)): \(L10n.tr(pressure.labelKey))",
+                      compact: CompactReading(top: pressure.compactToken,
                                               bottom: "TEMP",
                                               topWidthTemplate: "MAX"),
-                      heat: level.heat,
-                      value: .thermal(level))
+                      heat: pressure.heat,
+                      value: .thermal(pressure))
     }
 
     /// Same strict bounds as Lemon: missing, non-finite, <=20 and >=110

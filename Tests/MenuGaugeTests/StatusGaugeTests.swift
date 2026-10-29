@@ -22,16 +22,22 @@ final class StatusGaugeTests: XCTestCase {
         XCTAssertEqual(StatusGauge.needleDegrees(step: 99), -10, accuracy: 0.001)
     }
 
-    func testThermalStateLightsOneSegmentPerLevel() {
-        XCTAssertEqual(StatusGauge.segmentCount(for: ThermalLevel.nominal), 1)
-        XCTAssertEqual(StatusGauge.segmentCount(for: ThermalLevel.fair), 2)
-        XCTAssertEqual(StatusGauge.segmentCount(for: ThermalLevel.serious), 3)
-        XCTAssertEqual(StatusGauge.segmentCount(for: ThermalLevel.critical), 4)
+    func testThermalPressureLightsOneSegmentPerLevel() {
+        XCTAssertEqual(StatusGauge.segmentCount(for: .nominal), 0)
+        XCTAssertEqual(StatusGauge.segmentCount(for: .moderate), 1)
+        XCTAssertEqual(StatusGauge.segmentCount(for: .heavy), 2)
+        XCTAssertEqual(StatusGauge.segmentCount(for: .trapping), 3)
+        XCTAssertEqual(StatusGauge.segmentCount(for: .sleeping), 4)
 
-        XCTAssertEqual(StatusGauge.segmentCount(for: ProcessInfo.ThermalState.nominal), 1)
-        XCTAssertEqual(StatusGauge.segmentCount(for: ProcessInfo.ThermalState.fair), 2)
-        XCTAssertEqual(StatusGauge.segmentCount(for: ProcessInfo.ThermalState.serious), 3)
-        XCTAssertEqual(StatusGauge.segmentCount(for: ProcessInfo.ThermalState.critical), 4)
+        XCTAssertFalse(ThermalPressure.moderate.isHot)
+        XCTAssertTrue(ThermalPressure.heavy.isHot)
+        XCTAssertTrue(ThermalPressure.sleeping.isHot)
+
+        XCTAssertEqual(ThermalPressure.nominal.thermalLevel, .nominal)
+        XCTAssertEqual(ThermalPressure.moderate.thermalLevel, .fair)
+        XCTAssertEqual(ThermalPressure.heavy.thermalLevel, .fair)
+        XCTAssertEqual(ThermalPressure.trapping.thermalLevel, .serious)
+        XCTAssertEqual(ThermalPressure.sleeping.thermalLevel, .critical)
     }
 
     func testArcIsSplitIntoFourSpans() {

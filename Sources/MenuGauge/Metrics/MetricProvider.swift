@@ -21,21 +21,11 @@ struct CompactReading {
     }
 }
 
-/// `ProcessInfo.thermalState`, used where the Mac App Store sandbox cannot
-/// read AppleSMC. Menu-bar tokens stay short so translations of the full
-/// name do not resize the status item.
+/// `ProcessInfo.thermalState`, the coarse four-state view of
+/// `ThermalPressure`. Kept for the accessibility label wording, which does
+/// not need the five-level granularity.
 enum ThermalLevel: Equatable {
     case nominal, fair, serious, critical
-
-    static var current: ThermalLevel {
-        switch ProcessInfo.processInfo.thermalState {
-        case .nominal: return .nominal
-        case .fair: return .fair
-        case .serious: return .serious
-        case .critical: return .critical
-        @unknown default: return .serious
-        }
-    }
 
     var labelKey: L10n.Key {
         switch self {
@@ -43,26 +33,6 @@ enum ThermalLevel: Equatable {
         case .fair: return .thermalFair
         case .serious: return .thermalSerious
         case .critical: return .thermalCritical
-        }
-    }
-
-    /// Fixed-width menu-bar token. The popover uses `labelKey` instead.
-    var compactToken: String {
-        switch self {
-        case .nominal: return "OK"
-        case .fair: return "MID"
-        case .serious: return "HOT"
-        case .critical: return "MAX"
-        }
-    }
-
-    /// Same orange-to-red ramp shape as a hot CPU reading: nil is normal.
-    var heat: Double? {
-        switch self {
-        case .nominal: return nil
-        case .fair: return 0.35
-        case .serious: return 0.7
-        case .critical: return 1
         }
     }
 }
@@ -75,7 +45,7 @@ enum MetricValue {
     case temperature(Double)
     case fan(Double)
     case network(download: Double?, upload: Double?)
-    case thermal(ThermalLevel)
+    case thermal(ThermalPressure)
 
     var scalar: Double? {
         switch self {

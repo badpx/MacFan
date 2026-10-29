@@ -8,28 +8,12 @@ enum StatusGauge {
     static let arcStart = 190.0
     static let arcSweep = 200.0
 
-    /// Both editions use `ProcessInfo.thermalState` for now. The direct
-    /// download can later light segments from real temperatures; the
-    /// counts stay 1...4 either way.
-    static func segmentCount(for level: ThermalLevel) -> Int {
-        switch level {
-        case .nominal: return 1
-        case .fair: return 2
-        case .serious: return 3
-        case .critical: return 4
-        }
-    }
-
-    /// Same scale as `ThermalLevel.current`: an unknown future state is
-    /// treated as serious, which lights three segments.
-    static func segmentCount(for state: ProcessInfo.ThermalState) -> Int {
-        switch state {
-        case .nominal: return 1
-        case .fair: return 2
-        case .serious: return 3
-        case .critical: return 4
-        @unknown default: return 3
-        }
+    /// Both editions read thermald's five-level pressure via notifyd
+    /// (`ThermalPressure.current`): nominal lights no segment, sleeping
+    /// lights all four. `ProcessInfo.thermalState` compresses moderate+heavy
+    /// into fair, so it no longer drives the gauge.
+    static func segmentCount(for pressure: ThermalPressure) -> Int {
+        pressure.segments
     }
 
     /// Quantized needle position, 0 at the left end of the arc and
@@ -179,12 +163,12 @@ enum StatusGaugeImage {
 final class MenuBarGauge {
     var onUpdate: (() -> Void)?
 
-    private(set) var segments = 1
+    private(set) var segments = 0
     private(set) var displayedStep = 0
     private(set) var dimmed = false
     private(set) var accessibilityLabel = "MenuGauge"
 
-    private var level: ThermalLevel?
+    private var pressure: ThermalPressure?
     private var smoothed: Double?
     private var latestCPU: Double?
     private var animFrom = 0
@@ -231,13 +215,13 @@ final class MenuBarGauge {
     }
 
     func refreshThermal() {
-        let newLevel = ThermalLevel.current
-        let count = StatusGauge.segmentCount(for: newLevel)
-        let hot = newLevel == .serious || newLevel == .critical
-        let entered = hot && newLevel != level
+        let newPressure = ThermalPressure.current
+        let count = StatusGauge.segmentCount(for: newPressure)
+        let hot = newPressure.isHot
+        let entered = hot && !(pressure?.isHot ?? false)
         let periodic = hot && Date().timeIntervalSince(lastBlink) >= 30
         segments = count
-        level = newLevel
+        pressure = newPressure
         refreshLabel()
         publish()
         if (entered || periodic) && !reduceMotion {
@@ -295,7 +279,8 @@ final class MenuBarGauge {
     }
 
     private func refreshLabel() {
-        let state = level.map { "\(L10n.tr(.thermalState)) \(L10n.tr($0.labelKey))" } ?? L10n.tr(.thermalState)
+        let state = pressure.map { "\(L10n.tr(.thermalState)) \(L10n.tr($0.thermalLevel.labelKey))" }
+            ?? L10n.tr(.thermalState)
         if let latestCPU {
             accessibilityLabel = String(format: L10n.tr(.gaugeStatus), Int(latestCPU.rounded()), state)
         } else {

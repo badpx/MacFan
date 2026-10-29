@@ -48,10 +48,13 @@ final class MetricPresentationTests: XCTestCase {
         XCTAssertEqual(L10n.string(.thermalCritical, language: "zh-Hant"), "危急")
         XCTAssertEqual(L10n.string(.thermalFair, language: "en"), "Fair")
         XCTAssertEqual(L10n.string(.thermalSerious, language: "en"), "Serious")
-        XCTAssertEqual(ThermalLevel.nominal.compactToken, "OK")
-        XCTAssertEqual(ThermalLevel.fair.compactToken, "MID")
-        XCTAssertEqual(ThermalLevel.serious.compactToken, "HOT")
-        XCTAssertEqual(ThermalLevel.critical.compactToken, "MAX")
+        XCTAssertEqual(L10n.string(.thermalHeavy, language: "en"), "Heavy")
+        XCTAssertEqual(L10n.string(.thermalHeavy, language: "zh-Hans"), "很高")
+        XCTAssertEqual(ThermalPressure.nominal.compactToken, "OK")
+        XCTAssertEqual(ThermalPressure.moderate.compactToken, "MID")
+        XCTAssertEqual(ThermalPressure.heavy.compactToken, "HI")
+        XCTAssertEqual(ThermalPressure.trapping.compactToken, "HOT")
+        XCTAssertEqual(ThermalPressure.sleeping.compactToken, "MAX")
     }
 
     func testUnavailableAndZeroNetworkRatesRemainDistinct() {
