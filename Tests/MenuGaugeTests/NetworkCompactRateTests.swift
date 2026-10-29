@@ -29,7 +29,8 @@ final class NetworkCompactRateTests: XCTestCase {
         XCTAssertEqual(NetworkCompactRate.format(bytesPerSecond: 999_600_000_000), "999G")
         XCTAssertEqual(NetworkCompactRate.format(bytesPerSecond: 1e15), "999G")
 
-        XCTAssertEqual(NetworkCompactRate.format(bytesPerSecond: -.nan), "0.0K")
+        XCTAssertEqual(NetworkCompactRate.format(bytesPerSecond: .nan), "0.0K")
+        XCTAssertEqual(NetworkCompactRate.format(bytesPerSecond: .infinity), "0.0K")
         XCTAssertEqual(NetworkCompactRate.format(bytesPerSecond: -5), "0.0K")
     }
 
