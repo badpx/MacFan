@@ -45,13 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         static let topFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         static let bottomFont = NSFont.systemFont(ofSize: 7.5, weight: .regular)
-        static let uniformFont = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+        static let uniformFont = NetworkCompactRate.menuFont
         static let separatorFont = NSFont.systemFont(ofSize: 14, weight: .ultraLight)
         static let separatorWidth: CGFloat = 12
         static let maxWidgetWidth: CGFloat = 70
-        /// Fixed width for the network widget: worst case "↑999.9M"
-        /// measures ~41.8pt in `uniformFont`, rounded up.
-        static let uniformWidgetWidth: CGFloat = 42
 
         /// (x origin, width) per part, separators included implicitly.
         private var origins: [CGFloat] = []
@@ -69,7 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 if index > 0 { x += Self.separatorWidth }
                 let width: CGFloat
                 if part.uniformFont {
-                    width = Self.uniformWidgetWidth
+                    // Exact width of the widest compact rate. No slack.
+                    let template = part.topWidthTemplate ?? NetworkCompactRate.widthTemplate
+                    width = Self.measure(template, font: Self.uniformFont)
                 } else {
                     let topWidth = Self.measure(part.topWidthTemplate ?? part.top, font: Self.topFont)
                     let bottomWidth = Self.measure(part.bottom, font: Self.bottomFont)
