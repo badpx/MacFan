@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// What the menu bar is allowed to show, and how a saved selection is read.
@@ -76,6 +77,60 @@ enum MenuBarDisplay {
     /// the last metric. When it is off, the last metric stays instead.
     static func canHideAnotherMetric(logoSelected: Bool, visibleMetricCount: Int) -> Bool {
         visibleMetricCount > 0 && (logoSelected || visibleMetricCount > 1)
+    }
+}
+
+/// Frames for one status item. The button's own image is only used in
+/// logo-only mode (`NSStatusItem.squareLength`). Beside metrics, the gauge
+/// is drawn inside the widget view: `NSStatusBarButton` centers `button.image`
+/// over the whole item and ignores `imageLeading`, which painted the gauge
+/// on top of the text.
+struct MenuBarItemLayout: Equatable {
+    /// Left and right padding when the logo is off. The historical widget
+    /// frame started at x = 3 and the item was `width + 6`.
+    static let metricsInset: CGFloat = 3
+    /// Clear space between the logo slot and the first metric.
+    static let logoGap: CGFloat = 4
+
+    var showsLogo: Bool
+    var barHeight: CGFloat
+    var widgetsWidth: CGFloat
+
+    /// Square slot, at least as wide as the gauge image so the ink is not
+    /// clipped and not narrower than the icon-only item (the bar thickness).
+    var logoSlotWidth: CGFloat {
+        guard showsLogo else { return 0 }
+        return max(barHeight, StatusGaugeImage.pointSize.width)
+    }
+
+    /// X of the first metric, in the widget view. The view covers the item
+    /// from x = 0, so this is also the button coordinate.
+    var widgetsOriginX: CGFloat {
+        showsLogo ? logoSlotWidth + Self.logoGap : Self.metricsInset
+    }
+
+    /// Status-item length. Includes the logo slot, the gap, the metrics,
+    /// and the trailing inset. Not used for logo-only mode.
+    var length: CGFloat {
+        widgetsOriginX + widgetsWidth + Self.metricsInset
+    }
+
+    /// Gauge image, centered in the slot. The view is flipped (y grows down).
+    func logoImageRect(imageSize: CGSize = StatusGaugeImage.pointSize) -> CGRect {
+        guard showsLogo else { return .zero }
+        let x = (logoSlotWidth - imageSize.width) / 2
+        let y = (barHeight - imageSize.height) / 2
+        return CGRect(x: x, y: y, width: imageSize.width, height: imageSize.height)
+    }
+
+    var widgetsRect: CGRect {
+        CGRect(x: widgetsOriginX, y: 0, width: widgetsWidth, height: barHeight)
+    }
+
+    /// The gauge ink ends before the metrics begin.
+    var logoOverlapsWidgets: Bool {
+        guard showsLogo, widgetsWidth > 0 else { return false }
+        return logoImageRect().maxX > widgetsOriginX
     }
 }
 

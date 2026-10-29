@@ -21,9 +21,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// keeping that hierarchy alive made AppKit continuously re-render
     /// status-item snapshots (~50% CPU). One flat view keeps the per-tick
     /// cost near zero. Clicks fall through to the status bar button via
-    /// the nil hit test. The gauge is not drawn here: it is the button's
-    /// template image, to the left of these widgets when the logo is on,
-    /// and on its own when no metric is showing.
+    /// the nil hit test. Logo-only mode still uses the button's template
+    /// image. Beside metrics, the gauge is drawn in this view: the button
+    /// cell centers `button.image` over the whole item, on top of the text.
     private final class WidgetsView: NSView {
         struct Part {
             var top: String
@@ -33,6 +33,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         var parts: [Part] = []
+        /// Where metric text starts. 3 when the logo is off; past the logo
+        /// slot when it is on. The view itself covers the whole status item.
+        var metricsOriginX: CGFloat = MenuBarItemLayout.metricsInset
+        var showsLogo = false
+        var logoImage: NSImage?
+        var logoRect: CGRect = .zero
 
         /// y = 0 at the top, so "top" text really draws on top.
         override var isFlipped: Bool { true }
@@ -77,18 +83,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         override func draw(_ dirtyRect: NSRect) {
+            if showsLogo, let logoImage, !logoRect.isEmpty {
+                drawLogo(logoImage, in: logoRect)
+            }
             let height = bounds.height
             let color = NSColor.labelColor
             for (index, part) in parts.enumerated() {
                 if index > 0 {
-                    let sepX = origins[index] - Self.separatorWidth
+                    let sepX = metricsOriginX + origins[index] - Self.separatorWidth
                     drawText("|", font: Self.separatorFont,
                              color: color.withAlphaComponent(0.7),
                              in: NSRect(x: sepX, y: 0,
                                         width: Self.separatorWidth, height: height),
                              align: .center)
                 }
-                let origin = origins[index]
+                let origin = metricsOriginX + origins[index]
                 let width = widths[index]
                 if part.uniformFont {
                     // Network widget: up over down, same size, left aligned.
@@ -127,6 +136,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                                   width: rect.width,
                                   height: textHeight)
             (text as NSString).draw(in: centered, withAttributes: attributes)
+        }
+
+        /// The gauge's pixels are black with alpha. Painted here with
+        /// `labelColor` (source-atop keeps the dim segment alphas) it
+        /// follows light mode, dark mode, and a highlighted menu bar the
+        /// same way the metric text does. Logo-only mode still assigns the
+        /// template image to the button, which is what AppKit tints itself.
+        private func drawLogo(_ image: NSImage, in rect: NSRect) {
+            // Copy so clearing the template flag cannot affect the cached
+            // image the square (logo-only) item still assigns to the button.
+            guard let raw = image.copy() as? NSImage else { return }
+            raw.isTemplate = false
+            let tint = NSColor.labelColor
+            let painted = NSImage(size: raw.size, flipped: false) { bounds in
+                raw.draw(in: bounds, from: .zero, operation: .sourceOver,
+                         fraction: 1, respectFlipped: false, hints: nil)
+                tint.set()
+                bounds.fill(using: .sourceAtop)
+                return true
+            }
+            painted.isTemplate = false
+            painted.draw(in: rect, from: NSRect(origin: .zero, size: raw.size),
+                         operation: .sourceOver, fraction: 1,
+                         respectFlipped: true, hints: nil)
         }
 
         static func measure(_ text: String, font: NSFont) -> CGFloat {
@@ -414,10 +447,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: - Menu bar widgets
 
-    /// The template image is the status button's image, so AppKit tints it
-    /// for light, dark, and the highlighted menu bar. With metrics beside
-    /// it, the image stays on the leading edge and the widgets start after
-    /// a square slot. With nothing else to draw, the item is that square.
+    /// Logo-only: the template image is the status button's image (square
+    /// item), so AppKit tints it for light, dark, and highlight. With
+    /// metrics, the gauge is drawn in the widget view's left slot and the
+    /// button image is cleared — the cell would otherwise center it over
+    /// the text.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
         defer { syncPopover() }
@@ -442,7 +476,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             widgetsView?.removeFromSuperview()
             widgetsView = nil
             button.title = ""
-            showGaugeImage(position: .imageOnly)
+            showGaugeImage()
             let layoutChanged = statusItem.length != NSStatusItem.squareLength
             if layoutChanged {
                 statusItem.length = NSStatusItem.squareLength
@@ -451,12 +485,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
 
+        // The cell draws button.image across the item. Metrics own the view,
+        // so the image has to come off the button or it sits on the text.
+        button.image = nil
         button.title = ""
-        if showsLogo {
-            showGaugeImage(position: .imageLeading)
-        } else if button.image != nil {
-            button.image = nil
-        }
 
         let view: WidgetsView
         if let existing = widgetsView {
@@ -471,17 +503,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             WidgetsView.Part(top: $0.top, bottom: $0.bottom, uniformFont: $0.uniformFont,
                              topWidthTemplate: $0.topWidthTemplate)
         }
-        let width = view.relayout()
+        let widgetsWidth = view.relayout()
         let barHeight = NSStatusBar.system.thickness
-        // The logo occupies the same square the icon-only item uses, so the
-        // metrics start to its right. Without the logo the old 3pt inset stays.
-        let leading: CGFloat = showsLogo ? barHeight : 3
-        let trailing: CGFloat = 3
-        let length = leading + width + trailing
-        let layoutChanged = view.frame.minX != leading || view.frame.width != width
-            || view.frame.height != barHeight || statusItem.length != length
+        let layout = MenuBarItemLayout(showsLogo: showsLogo, barHeight: barHeight,
+                                       widgetsWidth: widgetsWidth)
+        view.showsLogo = showsLogo
+        view.metricsOriginX = layout.widgetsOriginX
+        view.logoRect = layout.logoImageRect()
+        view.logoImage = showsLogo ? gauge.image : nil
+        let length = layout.length
+        let frame = NSRect(x: 0, y: 0, width: length, height: barHeight)
+        let layoutChanged = view.frame.minX != frame.minX || view.frame.width != frame.width
+            || view.frame.height != frame.height || statusItem.length != length
         if layoutChanged {
-            view.frame = NSRect(x: leading, y: 0, width: width, height: barHeight)
+            view.frame = frame
             statusItem.length = length
         }
         overflow.noteLayout(renderedCount: parts.count, layoutChanged: layoutChanged)
@@ -489,21 +524,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// Template images are tinted only when they are the status button's image.
-    private func showGaugeImage(position: NSControl.ImagePosition) {
+    /// Used for logo-only mode, which stays a square status item.
+    private func showGaugeImage() {
         guard let button = statusItem.button else { return }
         let image = gauge.image
         image.isTemplate = true
-        guard button.image !== image || button.imagePosition != position else { return }
+        guard button.image !== image || button.imagePosition != .imageOnly else { return }
         button.image = image
-        button.imagePosition = position
-        button.imageHugsTitle = false
+        button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
     }
 
     private func applyGaugeAppearance() {
         statusItem.button?.setAccessibilityLabel(gauge.accessibilityLabel)
         guard menuBarShowsLogo else { return }
-        showGaugeImage(position: widgetsView == nil ? .imageOnly : .imageLeading)
+        if let widgetsView {
+            widgetsView.logoImage = gauge.image
+            widgetsView.needsDisplay = true
+        } else {
+            showGaugeImage()
+        }
     }
 
     /// Per-tick overflow handling. When a status item no longer fits,

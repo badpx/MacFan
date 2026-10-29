@@ -92,6 +92,35 @@ final class MenuBarSelectionTests: XCTestCase {
         XCTAssertFalse(MenuBarDisplay.canHideAnotherMetric(logoSelected: true, visibleMetricCount: 0))
     }
 
+    func testLogoSlotSitsLeftOfTheMetricsWithoutOverlapping() {
+        let image = StatusGaugeImage.pointSize
+        let widths: [CGFloat] = [28, 42, 120, 280]
+        let heights: [CGFloat] = [image.height, 22, 24, 30]
+        for barHeight in heights {
+            for widgetsWidth in widths {
+                let layout = MenuBarItemLayout(showsLogo: true, barHeight: barHeight,
+                                               widgetsWidth: widgetsWidth)
+                let logo = layout.logoImageRect()
+                XCTAssertFalse(layout.logoOverlapsWidgets, "h=\(barHeight) w=\(widgetsWidth)")
+                XCTAssertGreaterThanOrEqual(layout.widgetsOriginX, logo.maxX)
+                XCTAssertEqual(layout.widgetsOriginX,
+                               layout.logoSlotWidth + MenuBarItemLayout.logoGap)
+                XCTAssertEqual(layout.length,
+                               layout.widgetsOriginX + widgetsWidth + MenuBarItemLayout.metricsInset)
+                XCTAssertGreaterThan(layout.length, widgetsWidth + MenuBarItemLayout.metricsInset)
+                XCTAssertGreaterThanOrEqual(layout.logoSlotWidth, image.width)
+                XCTAssertGreaterThanOrEqual(layout.logoSlotWidth, barHeight)
+                XCTAssertFalse(logo.intersects(layout.widgetsRect))
+            }
+        }
+
+        let metricsOnly = MenuBarItemLayout(showsLogo: false, barHeight: 24, widgetsWidth: 50)
+        XCTAssertEqual(metricsOnly.widgetsOriginX, 3)
+        XCTAssertEqual(metricsOnly.length, 56)
+        XCTAssertEqual(metricsOnly.logoSlotWidth, 0)
+        XCTAssertFalse(metricsOnly.logoOverlapsWidgets)
+    }
+
     func testSettingsFocusRingWaitsForTab() {
         var focus = SettingsFocusDecider()
         XCTAssertEqual(focus.decide(requestedView: true, userClickInside: false), .windowItself)
