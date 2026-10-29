@@ -27,14 +27,18 @@ struct MenuBarHintArt: View {
     static let ringDiameter: CGFloat = 36
     static let highlight = Color(red: 0.98, green: 0.80, blue: 0.22)
 
-    /// Just outside the ring, directly under its center. The control point
-    /// shares this x so the curve arrives vertically and the head points
-    /// straight at the gauge.
+    /// Just outside the ring, under its center. The tail sits a short way
+    /// below-left, the same offset the left-hand gauge used, so the curve
+    /// stays short and nearly straight. The control point shares the tip’s
+    /// x, so the head still meets the ring from below.
     static var arrowTip: CGPoint {
         CGPoint(x: ringCenter.x, y: ringCenter.y + ringDiameter / 2 + 3)
     }
-    static var arrowTail: CGPoint { CGPoint(x: ringCenter.x - 40, y: 78) }
-    static var arrowControl: CGPoint { CGPoint(x: arrowTip.x, y: 64) }
+    static let arrowTailOffset = CGPoint(x: -16, y: 31)
+    static var arrowTail: CGPoint {
+        CGPoint(x: arrowTip.x + arrowTailOffset.x, y: arrowTip.y + arrowTailOffset.y)
+    }
+    static var arrowControl: CGPoint { CGPoint(x: arrowTip.x, y: arrowTip.y + 17) }
 
     private static let gaugeImage = StatusGaugeImage.paintedImage(for: gaugeKey, color: .white)
 

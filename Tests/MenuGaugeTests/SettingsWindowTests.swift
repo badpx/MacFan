@@ -128,6 +128,8 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(tip.x, MenuBarHintArt.arrowControl.x)
         XCTAssertGreaterThan(tip.y, ringBottom)
         XCTAssertLessThan(tip.y, MenuBarHintArt.arrowTail.y)
+        XCTAssertEqual(MenuBarHintArt.ringCenter.x - MenuBarHintArt.arrowTail.x, 16)
+        XCTAssertEqual(MenuBarHintArt.arrowTail.y - tip.y, 31)
     }
 
     private func alphaMask(_ image: NSImage) -> [Int] {
