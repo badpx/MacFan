@@ -2,6 +2,8 @@ import SwiftUI
 
 enum PanelPalette {
     static let background = adaptive(0xF5F6F8, 0x202225)
+    /// Header and footer, a step darker than `background` in both appearances.
+    static let bar = adaptive(0xE8EAEE, 0x181A1C)
     static let card = adaptive(0xFFFFFF, 0x2B2D31)
     static let secondary = adaptive(0x626972, 0xADB3BC)
     static let line = adaptive(0xDFE2E7, 0x41444B)
@@ -106,11 +108,10 @@ struct PopoverView: View {
         static let headerTop: CGFloat = 10
         static let headerRow: CGFloat = 32
         static let headerBottom: CGFloat = 8
-        static let rule: CGFloat = 1
         static let footerRow: CGFloat = 32
         static let footerPad: CGFloat = 8
         static var height: CGFloat {
-            headerTop + headerRow + headerBottom + rule + rule + footerPad * 2 + footerRow
+            headerTop + headerRow + headerBottom + footerPad * 2 + footerRow
         }
     }
 
@@ -132,6 +133,7 @@ struct PopoverView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(PanelPalette.background)
             footer
         }
         .font(.system(size: 13))
@@ -147,16 +149,14 @@ struct PopoverView: View {
                 Text("MenuGauge")
                     .font(.system(size: 14, weight: .semibold))
                 Spacer(minLength: 8)
-                MenuGaugeIconButton(systemName: "gearshape", label: L10n.tr(.settings)) {
-                    model.onOpenSettings?()
-                }
             }
             .frame(height: Chrome.headerRow)
             .padding(.horizontal, 16)
             .padding(.top, Chrome.headerTop)
             .padding(.bottom, Chrome.headerBottom)
-            Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
         }
+        .frame(maxWidth: .infinity)
+        .background(PanelPalette.bar)
     }
 
     private var overview: some View {
@@ -223,21 +223,13 @@ struct PopoverView: View {
         VStack(spacing: 0) {
             #if !MAS
             fanRow
-            rowLine
             #endif
             capacityRow(id: "memory", symbol: "memorychip",
                         word: L10n.ui(.available), showAvailable: true, decimals: 1)
-            rowLine
             capacityRow(id: "disk", symbol: "internaldrive",
                         word: L10n.ui(.available), showAvailable: true, decimals: 0)
-            rowLine
             networkRow
         }
-    }
-
-    private var rowLine: some View {
-        Rectangle().fill(PanelPalette.line).frame(height: 1)
-            .padding(.leading, 30)
     }
 
     #if !MAS
@@ -299,18 +291,20 @@ struct PopoverView: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(PanelPalette.line).frame(height: Chrome.rule)
-            HStack {
-                Spacer(minLength: 0)
-                MenuGaugeIconButton(systemName: "power", label: quitHelp) {
-                    model.onQuit?()
-                }
+        HStack {
+            MenuGaugeIconButton(systemName: "gearshape", label: L10n.tr(.settings)) {
+                model.onOpenSettings?()
             }
-            .frame(height: Chrome.footerRow)
-            .padding(.horizontal, 16)
-            .padding(.vertical, Chrome.footerPad)
+            Spacer(minLength: 0)
+            MenuGaugeIconButton(systemName: "power", label: quitHelp) {
+                model.onQuit?()
+            }
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: Chrome.footerRow)
+        .padding(.horizontal, 16)
+        .padding(.vertical, Chrome.footerPad)
+        .background(PanelPalette.bar)
     }
 
     /// Spoken name and tooltip. ⌘Q still quits; the button itself is only the power icon.

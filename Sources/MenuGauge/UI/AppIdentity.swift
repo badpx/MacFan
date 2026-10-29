@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppIdentity {
-    /// "MenuGauge 1.0". The panel footer and the About row share this.
+    /// "MenuGauge 1.0". Shown on the Settings About row.
     /// A development launch with no short version shows the product name only.
     static var versionLabel: String {
         let candidates = [
