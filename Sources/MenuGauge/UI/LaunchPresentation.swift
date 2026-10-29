@@ -21,17 +21,20 @@ enum LaunchPresentation {
     }
 }
 
-/// Login-item launches are an `oapp` Apple event whose `prdt` record
-/// contains `lgit` (`keyAELaunchedAsLogInItem`). Finder, Launchpad and
-/// `open` send `oapp` without that flag. Read the event during
-/// `applicationDidFinishLaunching`; it is not available later.
+/// Login-item launches are an `oapp` Apple event whose `prdt`
+/// (`keyAEPropData`) parameter is the enum `lgit`
+/// (`keyAELaunchedAsLogInItem`), not a record that contains that field.
+/// Finder, Launchpad and `open` send `oapp` with no `prdt`. Read the event
+/// during `applicationDidFinishLaunching`; it is not available later.
 enum LoginLaunch {
     /// 'oapp'
     static let openApplication = AEEventID(0x6F617070)
     /// 'prdt'
     static let propData = AEKeyword(0x70726474)
     /// 'lgit'
-    static let launchedAsLogInItem = AEKeyword(0x6C676974)
+    static let launchedAsLogInItem = OSType(0x6C676974)
+    /// 'enum'
+    private static let enumerated = DescType(0x656E756D)
 
     static func isCurrentEvent() -> Bool {
         isLoginLaunch(NSAppleEventManager.shared().currentAppleEvent)
@@ -40,9 +43,13 @@ enum LoginLaunch {
     static func isLoginLaunch(_ event: NSAppleEventDescriptor?) -> Bool {
         guard let event, event.eventID == openApplication else { return false }
         guard let props = event.paramDescriptor(forKeyword: propData) else { return false }
+        // The system sends `prdt` as the enum itself.
+        if props.descriptorType == enumerated, props.enumCodeValue == launchedAsLogInItem {
+            return true
+        }
+        // A record that nests `lgit` is not what launchd sends. Accept it
+        // so a non-system launcher cannot slip past the check.
         guard let flag = props.paramDescriptor(forKeyword: launchedAsLogInItem) else { return false }
-        // An explicit false is the only negative. Some launchers insert the
-        // key without a boolean type; presence then still means login.
         let kind = flag.descriptorType
         if kind == DescType(0x66616C73) { return false } // 'fals'
         if kind == DescType(0x626F6F6C) || kind == DescType(0x74727565) {

@@ -272,7 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         DistributedNotificationCenter.default().postNotificationName(
             SingleInstance.handoffNotification,
             object: bundleIdentifier,
-            userInfo: [SingleInstance.senderPIDKey: Int(current.processIdentifier)],
+            userInfo: SingleInstance.handoffUserInfo,
             deliverImmediately: true)
         for app in NSWorkspace.shared.runningApplications where
             app.bundleIdentifier == bundleIdentifier &&
@@ -286,8 +286,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// Sandboxed copies of this bundle id can hear each other without a new
-    /// entitlement. Activation alone does not reopen the app, so Settings
-    /// is shown from here, the same path as `applicationShouldHandleReopen`.
+    /// entitlement when the post carries no userInfo. The yielding process
+    /// exits before it observes, so every delivery is from another copy.
+    /// Activation alone does not reopen the app, so Settings is shown from
+    /// here, the same path as `applicationShouldHandleReopen`.
     private func observeInstanceHandoff() {
         DistributedNotificationCenter.default().addObserver(
             self,
@@ -297,9 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             suspensionBehavior: .deliverImmediately)
     }
 
-    @objc private func anotherInstanceRequestedSettings(_ notification: Notification) {
-        let sender = (notification.userInfo?[SingleInstance.senderPIDKey] as? NSNumber)?.int32Value
-        if sender == ProcessInfo.processInfo.processIdentifier { return }
+    @objc private func anotherInstanceRequestedSettings(_: Notification) {
         showSettings()
     }
 

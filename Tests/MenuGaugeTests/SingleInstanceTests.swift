@@ -35,6 +35,11 @@ final class SingleInstanceTests: XCTestCase {
             arguments: ["MenuGauge", "--ui-snapshot", "/tmp/out"]))
     }
 
+    func testHandoffPostHasNoUserInfo() {
+        XCTAssertNil(SingleInstance.handoffUserInfo)
+        XCTAssertEqual(SingleInstance.handoffNotification.rawValue, "com.badpx.macfan.showSettings")
+    }
+
     func testMissingBundleIdentifierDoesNotMatchOtherProcesses() {
         let peers = [
             SingleInstancePeer(bundleIdentifier: nil, processIdentifier: 10),

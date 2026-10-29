@@ -13,7 +13,10 @@ final class SettingsWindowTests: XCTestCase {
 
     func testLoginAppleEventIsTheOnlyAutomaticSuppression() {
         XCTAssertFalse(LoginLaunch.isLoginLaunch(nil))
-        XCTAssertFalse(LoginLaunch.isLoginLaunch(openEvent(loginFlag: nil)))
+        XCTAssertFalse(LoginLaunch.isLoginLaunch(openApplicationEvent()))
+        // Launch Services puts the enum `lgit` directly in `prdt`.
+        XCTAssertTrue(LoginLaunch.isLoginLaunch(loginItemOpenEvent()))
+        // A nested record is not the system form, but still means login.
         XCTAssertTrue(LoginLaunch.isLoginLaunch(openEvent(loginFlag: true)))
         XCTAssertFalse(LoginLaunch.isLoginLaunch(openEvent(loginFlag: false)))
 
@@ -32,7 +35,7 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertTrue(SessionQuit.isEndingSession(quitEvent(reason: 0x73687574))) // shut
         XCTAssertTrue(SessionQuit.isEndingSession(quitEvent(reason: 0x72657374))) // rest
         XCTAssertTrue(SessionQuit.isEndingSession(quitEvent(reason: 0x6C6F676F))) // logo
-        XCTAssertFalse(SessionQuit.isEndingSession(openEvent(loginFlag: true)))
+        XCTAssertFalse(SessionQuit.isEndingSession(loginItemOpenEvent()))
     }
 
     func testEveryLanguageHasEveryString() {
@@ -197,14 +200,27 @@ final class SettingsWindowTests: XCTestCase {
         #endif
     }
 
-    private func openEvent(loginFlag: Bool?) -> NSAppleEventDescriptor {
-        let event = NSAppleEventDescriptor(
+    /// Plain `oapp`, the way Finder and `open` launch the app.
+    private func openApplicationEvent() -> NSAppleEventDescriptor {
+        NSAppleEventDescriptor(
             eventClass: AEEventClass(0x61657674),
             eventID: LoginLaunch.openApplication,
             targetDescriptor: nil,
             returnID: AEReturnID(-1),
             transactionID: AETransactionID(0))
-        guard let loginFlag else { return event }
+    }
+
+    /// `prdt` is the enum `lgit`, the way a login-item launch arrives.
+    private func loginItemOpenEvent() -> NSAppleEventDescriptor {
+        let event = openApplicationEvent()
+        event.setParam(NSAppleEventDescriptor(enumCode: LoginLaunch.launchedAsLogInItem),
+                       forKeyword: LoginLaunch.propData)
+        return event
+    }
+
+    /// Alternate shape some callers build: a record with a boolean `lgit`.
+    private func openEvent(loginFlag: Bool) -> NSAppleEventDescriptor {
+        let event = openApplicationEvent()
         let record = NSAppleEventDescriptor.record()
         record.setParam(NSAppleEventDescriptor(boolean: loginFlag),
                         forKeyword: LoginLaunch.launchedAsLogInItem)
