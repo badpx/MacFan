@@ -104,20 +104,23 @@ final class MenuBarSelectionTests: XCTestCase {
                 XCTAssertFalse(layout.logoOverlapsWidgets, "h=\(barHeight) w=\(widgetsWidth)")
                 XCTAssertGreaterThanOrEqual(layout.widgetsOriginX, logo.maxX)
                 XCTAssertEqual(layout.widgetsOriginX,
-                               layout.logoSlotWidth + MenuBarItemLayout.logoGap)
+                               MenuBarItemLayout.outerInset + image.width + MenuBarItemLayout.logoGap)
                 XCTAssertEqual(layout.length,
-                               layout.widgetsOriginX + widgetsWidth + MenuBarItemLayout.metricsInset)
-                XCTAssertGreaterThan(layout.length, widgetsWidth + MenuBarItemLayout.metricsInset)
-                XCTAssertGreaterThanOrEqual(layout.logoSlotWidth, image.width)
-                XCTAssertGreaterThanOrEqual(layout.logoSlotWidth, barHeight)
+                               layout.widgetsOriginX + widgetsWidth + MenuBarItemLayout.outerInset)
+                XCTAssertEqual(layout.leadingInset, MenuBarItemLayout.outerInset)
+                XCTAssertEqual(layout.trailingInset, MenuBarItemLayout.outerInset)
+                XCTAssertEqual(layout.leadingInset, layout.trailingInset)
+                XCTAssertEqual(logo.minX, MenuBarItemLayout.outerInset)
                 XCTAssertFalse(logo.intersects(layout.widgetsRect))
             }
         }
 
         let metricsOnly = MenuBarItemLayout(showsLogo: false, barHeight: 24, widgetsWidth: 50)
-        XCTAssertEqual(metricsOnly.widgetsOriginX, 3)
-        XCTAssertEqual(metricsOnly.length, 56)
-        XCTAssertEqual(metricsOnly.logoSlotWidth, 0)
+        XCTAssertEqual(metricsOnly.widgetsOriginX, MenuBarItemLayout.outerInset)
+        XCTAssertEqual(metricsOnly.length, 54)
+        XCTAssertEqual(metricsOnly.leadingInset, MenuBarItemLayout.outerInset)
+        XCTAssertEqual(metricsOnly.trailingInset, MenuBarItemLayout.outerInset)
+        XCTAssertEqual(metricsOnly.leadingInset, metricsOnly.trailingInset)
         XCTAssertFalse(metricsOnly.logoOverlapsWidgets)
     }
 

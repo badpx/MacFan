@@ -14,6 +14,34 @@ import SwiftUI
 /// end and periodically probes for free space to bring them back. The
 /// logo, when it is on, stays to the left of the metrics and is the last
 /// thing left on screen.
+
+/// `NSStatusBarButton` paints a translucent rounded pill while it is
+/// highlighted: on mouse down, and for as long as a popover is shown from
+/// it. The status item owns the button instance, so the class is swapped
+/// in place (no stored properties — the object size must stay the same).
+/// Clicks, the popover anchor, and VoiceOver still use that same button.
+/// Glyphs keep their normal light/dark tint and are not inverted.
+private final class MenuBarStatusButton: NSStatusBarButton {
+    private enum Guard {
+        static var depth = 0
+    }
+
+    override var isHighlighted: Bool {
+        get { false }
+        set {
+            guard Guard.depth == 0 else { return }
+            Guard.depth += 1
+            cell?.isHighlighted = false
+            Guard.depth -= 1
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        cell?.isHighlighted = false
+        super.draw(dirtyRect)
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     /// Single view that draws every menu bar widget in one draw(_:).
@@ -35,7 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         var parts: [Part] = []
         /// Where metric text starts. 3 when the logo is off; past the logo
         /// slot when it is on. The view itself covers the whole status item.
-        var metricsOriginX: CGFloat = MenuBarItemLayout.metricsInset
+        var metricsOriginX: CGFloat = MenuBarItemLayout.outerInset
         var showsLogo = false
         var logoImage: NSImage?
         var logoRect: CGRect = .zero
@@ -228,6 +256,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         launchedAtLogin = LoginLaunch.isCurrentEvent()
         sanitizeStoredSelection()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            object_setClass(button, MenuBarStatusButton.self)
+            // The cell would still swap in a highlighted background even
+            // when the button reports it is not highlighted.
+            (button.cell as? NSButtonCell)?.highlightsBy = []
+        }
 
         popover.behavior = .transient
         popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -446,11 +480,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: - Menu bar widgets
 
-    /// Logo-only: the template image is the status button's image (square
-    /// item), so AppKit tints it for light, dark, and highlight. With
-    /// metrics, the gauge is drawn in the widget view's left slot and the
-    /// button image is cleared — the cell would otherwise center it over
-    /// the text.
+    /// Logo-only: the template image is the status button's image, in a
+    /// square item, tinted for light and dark. With metrics, the gauge is
+    /// drawn in the widget view and the button image is cleared — the cell
+    /// would otherwise center it over the text. The selection pill is
+    /// suppressed, so neither mode inverts its glyphs.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
         defer { syncPopover() }
