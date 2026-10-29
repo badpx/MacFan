@@ -85,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         static let topFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         static let bottomFont = NSFont.systemFont(ofSize: 7.5, weight: .regular)
         static let uniformFont = NetworkCompactRate.menuFont
-        static let separatorFont = NSFont.systemFont(ofSize: 14, weight: .ultraLight)
+        static let separatorFont = NSFont.systemFont(ofSize: 18, weight: .ultraLight)
         static let separatorWidth: CGFloat = 12
         static let maxWidgetWidth: CGFloat = 70
 
@@ -129,9 +129,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             for (index, part) in parts.enumerated() {
                 if index > 0 {
                     let sepX = metricsOriginX + origins[index] - Self.separatorWidth
+                    // Slight upward offset: the tall "|" glyph's ink center
+                    // sits ~1pt below the rect center.
                     drawText("|", font: Self.separatorFont,
                              color: color.withAlphaComponent(0.7),
-                             in: NSRect(x: sepX, y: 0,
+                             in: NSRect(x: sepX, y: -1,
                                         width: Self.separatorWidth, height: height),
                              align: .center)
                 }
@@ -149,8 +151,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                     drawText(part.top, font: Self.topFont, color: color,
                              in: NSRect(x: origin, y: 1, width: width, height: 14),
                              align: .center)
+                    // Label sits lower so its ink bottom lines up with the
+                    // network widget's second row (the ↓ arrow descends far).
+                    // Tighten the value/label gap so the label's ink bottom
+                    // lines up with the network widget's second row.
                     drawText(part.bottom, font: Self.bottomFont, color: color,
-                             in: NSRect(x: origin, y: 15, width: width, height: 9),
+                             in: NSRect(x: origin, y: 12.5, width: width, height: 9),
                              align: .center)
                 }
             }

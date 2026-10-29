@@ -9,3 +9,6 @@ package-lock.json
 *.p8
 *.provisionprofile
 *.mobileprovision
+# 本地多版本构建产物
+.build-maspreview/
+.build-test/
