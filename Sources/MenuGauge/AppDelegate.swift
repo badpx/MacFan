@@ -10,8 +10,49 @@ import SwiftUI
 /// bundle identifier com.badpx.macfan, so the MenuGauge rename keeps an
 /// existing choice.
 /// When the menu bar runs out of room the system silently hides the
-/// status item; the controller then drops widgets from the right end
-/// and periodically probes for free space to bring them back.
+/// status item; the controller then drops metric widgets from the right
+/// end and periodically probes for free space to bring them back. The
+/// logo, when it is on, stays to the left of the metrics and is the last
+/// thing left on screen.
+
+/// On macOS 13–26 the selection capsule is painted by `NSStatusBarButton`
+/// while `isHighlighted` is true (mouse down, and the whole time a popover
+/// is shown from the button). `highlight(_:)` was the public control for
+/// that capsule. macOS 27 draws it in the menu bar for the status item's
+/// expanded-interface session instead; `highlight(true)` no longer creates
+/// the capsule (FB23330269), and forcing `isHighlighted` off does not
+/// remove it. The class swap is therefore applied only before macOS 27.
+enum StatusItemCapsule {
+    static func suppressButtonHighlight(majorVersion: Int) -> Bool {
+        majorVersion < 27
+    }
+}
+
+/// The status item owns the button instance, so the class is swapped in
+/// place. No stored properties: the object size must stay the same.
+/// Clicks, the popover anchor, and VoiceOver still use that same button.
+/// Glyphs keep their normal light/dark tint and are not inverted.
+private final class MenuBarStatusButton: NSStatusBarButton {
+    private enum Guard {
+        static var depth = 0
+    }
+
+    override var isHighlighted: Bool {
+        get { false }
+        set {
+            guard Guard.depth == 0 else { return }
+            Guard.depth += 1
+            cell?.isHighlighted = false
+            Guard.depth -= 1
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        cell?.isHighlighted = false
+        super.draw(dirtyRect)
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     /// Single view that draws every menu bar widget in one draw(_:).
@@ -19,8 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// keeping that hierarchy alive made AppKit continuously re-render
     /// status-item snapshots (~50% CPU). One flat view keeps the per-tick
     /// cost near zero. Clicks fall through to the status bar button via
-    /// the nil hit test. The gauge is not drawn here: it is the button's
-    /// template image, and only while no metric is showing.
+    /// the nil hit test. Logo-only mode still uses the button's template
+    /// image. Beside metrics, the gauge is drawn in this view: the button
+    /// cell centers `button.image` over the whole item, on top of the text.
     private final class WidgetsView: NSView {
         struct Part {
             var top: String
@@ -30,19 +72,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         var parts: [Part] = []
+        /// Where metric text starts. 3 when the logo is off; past the logo
+        /// slot when it is on. The view itself covers the whole status item.
+        var metricsOriginX: CGFloat = MenuBarItemLayout.outerInset
+        var showsLogo = false
+        var logoImage: NSImage?
+        var logoRect: CGRect = .zero
 
         /// y = 0 at the top, so "top" text really draws on top.
         override var isFlipped: Bool { true }
 
         static let topFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         static let bottomFont = NSFont.systemFont(ofSize: 7.5, weight: .regular)
-        static let uniformFont = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+        static let uniformFont = NetworkCompactRate.menuFont
         static let separatorFont = NSFont.systemFont(ofSize: 14, weight: .ultraLight)
         static let separatorWidth: CGFloat = 12
         static let maxWidgetWidth: CGFloat = 70
-        /// Fixed width for the network widget: worst case "↑999.9M"
-        /// measures ~41.8pt in `uniformFont`, rounded up.
-        static let uniformWidgetWidth: CGFloat = 42
 
         /// (x origin, width) per part, separators included implicitly.
         private var origins: [CGFloat] = []
@@ -60,7 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 if index > 0 { x += Self.separatorWidth }
                 let width: CGFloat
                 if part.uniformFont {
-                    width = Self.uniformWidgetWidth
+                    // Exact width of the widest compact rate. No slack.
+                    let template = part.topWidthTemplate ?? NetworkCompactRate.widthTemplate
+                    width = Self.measure(template, font: Self.uniformFont)
                 } else {
                     let topWidth = Self.measure(part.topWidthTemplate ?? part.top, font: Self.topFont)
                     let bottomWidth = Self.measure(part.bottom, font: Self.bottomFont)
@@ -74,18 +121,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         override func draw(_ dirtyRect: NSRect) {
+            if showsLogo, let logoImage, !logoRect.isEmpty {
+                drawLogo(logoImage, in: logoRect)
+            }
             let height = bounds.height
             let color = NSColor.labelColor
             for (index, part) in parts.enumerated() {
                 if index > 0 {
-                    let sepX = origins[index] - Self.separatorWidth
+                    let sepX = metricsOriginX + origins[index] - Self.separatorWidth
                     drawText("|", font: Self.separatorFont,
                              color: color.withAlphaComponent(0.7),
                              in: NSRect(x: sepX, y: 0,
                                         width: Self.separatorWidth, height: height),
                              align: .center)
                 }
-                let origin = origins[index]
+                let origin = metricsOriginX + origins[index]
                 let width = widths[index]
                 if part.uniformFont {
                     // Network widget: up over down, same size, left aligned.
@@ -126,6 +176,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             (text as NSString).draw(in: centered, withAttributes: attributes)
         }
 
+        /// The gauge's pixels are black with alpha. Painted here with
+        /// `labelColor` (source-atop keeps the dim segment alphas) it
+        /// follows light mode, dark mode, and a highlighted menu bar the
+        /// same way the metric text does. Logo-only mode still assigns the
+        /// template image to the button, which is what AppKit tints itself.
+        private func drawLogo(_ image: NSImage, in rect: NSRect) {
+            // Copy so clearing the template flag cannot affect the cached
+            // image the square (logo-only) item still assigns to the button.
+            guard let raw = image.copy() as? NSImage else { return }
+            raw.isTemplate = false
+            let tint = NSColor.labelColor
+            let painted = NSImage(size: raw.size, flipped: false) { bounds in
+                raw.draw(in: bounds, from: .zero, operation: .sourceOver,
+                         fraction: 1, respectFlipped: false, hints: nil)
+                tint.set()
+                bounds.fill(using: .sourceAtop)
+                return true
+            }
+            painted.isTemplate = false
+            painted.draw(in: rect, from: NSRect(origin: .zero, size: raw.size),
+                         operation: .sourceOver, fraction: 1,
+                         respectFlipped: true, hints: nil)
+        }
+
         static func measure(_ text: String, font: NSFont) -> CGFloat {
             (text as NSString).size(withAttributes: [.font: font]).width
         }
@@ -159,35 +233,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: Menu bar overflow (graceful degradation)
 
-    /// Selected widgets suppressed from the right end because the
-    /// system hid the status item when the menu bar ran out of room
-    /// (network, the widest, drops first). 0 = everything is shown.
-    private var hiddenWidgetCount = 0
-    /// Widgets rendered by the last updateStatusBar pass (0 = icon mode).
-    private var renderedWidgetCount = 0
-    /// Relayouts take about one tick to settle in WindowServer, so the
-    /// tick right after a resize must not trust the window position.
-    private var skipVisibilityCheck = false
-    /// A restore probe (one widget added back) is awaiting its check.
-    private var probeInFlight = false
-    /// Last restore-probe attempt; paces probes to one per 30 seconds.
-    private var lastProbeAttempt = Date.distantPast
+    /// Hide and restore decisions. AppKit still reports occlusion and
+    /// applies the status-item length; see `MenuBarOverflow`.
+    private var overflow = MenuBarOverflow()
+    /// True when the template gauge image is currently on the status button.
+    private var menuBarShowsLogo = false
+    private var minimumHint = MinimumSelectionHint()
+    private var minimumHintTimer: Timer?
     private let selectionKey = "menuBarMetrics"
     private var selectedIDs: [String] {
         get {
-            let saved = UserDefaults.standard.stringArray(forKey: selectionKey) ?? []
-            return MetricCatalog.sanitizedSelection(saved, appStore: AppEdition.isAppStore)
+            MenuBarSelection.resolved(stored: UserDefaults.standard.stringArray(forKey: selectionKey),
+                                      appStore: AppEdition.isAppStore)
         }
-        set { UserDefaults.standard.set(newValue, forKey: selectionKey) }
+        set { UserDefaults.standard.set(MenuBarSelection.persisted(newValue), forKey: selectionKey) }
     }
 
     /// Drops a fan id left behind by the direct edition so the settings
     /// count and the overflow logic do not reserve a row this build cannot show.
     private func sanitizeStoredSelection() {
-        let saved = UserDefaults.standard.stringArray(forKey: selectionKey) ?? []
-        let cleaned = MetricCatalog.sanitizedSelection(saved, appStore: AppEdition.isAppStore)
-        if cleaned != saved {
-            UserDefaults.standard.set(cleaned, forKey: selectionKey)
+        let stored = UserDefaults.standard.stringArray(forKey: selectionKey)
+        let resolved = MenuBarSelection.resolved(stored: stored, appStore: AppEdition.isAppStore)
+        if stored != resolved {
+            UserDefaults.standard.set(resolved, forKey: selectionKey)
         }
     }
 
@@ -199,6 +267,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         launchedAtLogin = LoginLaunch.isCurrentEvent()
         sanitizeStoredSelection()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if StatusItemCapsule.suppressButtonHighlight(
+            majorVersion: ProcessInfo.processInfo.operatingSystemVersion.majorVersion),
+           let button = statusItem.button {
+            object_setClass(button, MenuBarStatusButton.self)
+            // The cell would still swap in a highlighted background even
+            // when the button reports it is not highlighted.
+            (button.cell as? NSButtonCell)?.highlightsBy = []
+        }
 
         popover.behavior = .transient
         popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -406,7 +482,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard force || popover.isShown || settings.isVisible else { return }
         panelModel.readings = readings
         panelModel.selectedIDs = selectedIDs
-        panelModel.hiddenCount = hiddenWidgetCount
+        panelModel.hiddenCount = overflow.hiddenWidgetCount
         panelModel.loginState = LoginItem.state
     }
 
@@ -417,10 +493,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: - Menu bar widgets
 
-    /// Metrics replace the gauge, matching the old fan symbol. The template
-    /// image is assigned to the status button so AppKit tints it for light,
-    /// dark, and the highlighted menu bar. With any metric drawn, the image
-    /// is cleared and only the text view remains.
+    /// Logo-only: the template image is the status button's image, in a
+    /// square item, tinted for light and dark. With metrics, the gauge is
+    /// drawn in the widget view and the button image is cleared — the cell
+    /// would otherwise center it over the text. Where the button still
+    /// owns the selection pill (macOS 13–26) that pill is suppressed, so
+    /// neither mode inverts its glyphs.
     private func updateStatusBar() {
         guard let button = statusItem.button else { return }
         defer { syncPopover() }
@@ -429,26 +507,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         button.setAccessibilityValue(providers.filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.menu }.joined(separator: ", "))
 
+        let logoSelected = selectedIDs.contains(MetricCatalog.logoID)
         let selectedParts = providers
             .filter { selectedIDs.contains($0.id) }
             .compactMap { readings[$0.id]?.compact }
-        hiddenWidgetCount = min(hiddenWidgetCount, selectedParts.count)
-        // Suppressed widgets drop off the right end first.
-        let parts = Array(selectedParts.dropLast(hiddenWidgetCount))
-        renderedWidgetCount = parts.count
+        overflow.clampHiddenCount(to: selectedParts.count)
+        // Suppressed widgets drop off the right end first. The logo is not
+        // one of them.
+        let parts = Array(selectedParts.dropLast(overflow.hiddenWidgetCount))
+        let showsLogo = MenuBarDisplay.showsLogo(logoSelected: logoSelected,
+                                                  renderedMetricCount: parts.count)
+        menuBarShowsLogo = showsLogo
 
-        guard !StatusGauge.showsGauge(renderedMetricCount: parts.count) else {
+        guard !parts.isEmpty else {
             widgetsView?.removeFromSuperview()
             widgetsView = nil
             button.title = ""
             showGaugeImage()
-            if statusItem.length != NSStatusItem.squareLength {
+            let layoutChanged = statusItem.length != NSStatusItem.squareLength
+            if layoutChanged {
                 statusItem.length = NSStatusItem.squareLength
-                skipVisibilityCheck = true
             }
+            overflow.noteLayout(renderedCount: parts.count, layoutChanged: layoutChanged)
             return
         }
 
+        // The cell draws button.image across the item. Metrics own the view,
+        // so the image has to come off the button or it sits on the text.
         button.image = nil
         button.title = ""
 
@@ -465,24 +550,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             WidgetsView.Part(top: $0.top, bottom: $0.bottom, uniformFont: $0.uniformFont,
                              topWidthTemplate: $0.topWidthTemplate)
         }
-        let width = view.relayout()
+        let widgetsWidth = view.relayout()
         let barHeight = NSStatusBar.system.thickness
-        let length = width + 6
-        if view.frame.minX != 3 || view.frame.width != width || view.frame.height != barHeight
-            || statusItem.length != length {
-            view.frame = NSRect(x: 3, y: 0, width: width, height: barHeight)
+        let layout = MenuBarItemLayout(showsLogo: showsLogo, barHeight: barHeight,
+                                       widgetsWidth: widgetsWidth)
+        view.showsLogo = showsLogo
+        view.metricsOriginX = layout.widgetsOriginX
+        view.logoRect = layout.logoImageRect()
+        view.logoImage = showsLogo ? gauge.image : nil
+        let length = layout.length
+        let frame = NSRect(x: 0, y: 0, width: length, height: barHeight)
+        let layoutChanged = view.frame.minX != frame.minX || view.frame.width != frame.width
+            || view.frame.height != frame.height || statusItem.length != length
+        if layoutChanged {
+            view.frame = frame
             statusItem.length = length
-            skipVisibilityCheck = true
         }
+        overflow.noteLayout(renderedCount: parts.count, layoutChanged: layoutChanged)
         view.needsDisplay = true
     }
 
     /// Template images are tinted only when they are the status button's image.
+    /// Used for logo-only mode, which stays a square status item.
     private func showGaugeImage() {
         guard let button = statusItem.button else { return }
         let image = gauge.image
         image.isTemplate = true
-        guard button.image !== image else { return }
+        guard button.image !== image || button.imagePosition != .imageOnly else { return }
         button.image = image
         button.imagePosition = .imageOnly
         button.imageScaling = .scaleProportionallyDown
@@ -490,8 +584,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func applyGaugeAppearance() {
         statusItem.button?.setAccessibilityLabel(gauge.accessibilityLabel)
-        guard widgetsView == nil else { return }
-        showGaugeImage()
+        guard menuBarShowsLogo else { return }
+        if let widgetsView {
+            widgetsView.logoImage = gauge.image
+            widgetsView.needsDisplay = true
+        } else {
+            showGaugeImage()
+        }
     }
 
     /// Per-tick overflow handling. When a status item no longer fits,
@@ -501,25 +600,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// On detection, drop one more widget; on a successful restore
     /// probe, immediately try the next one.
     private func checkVisibilityAndDegrade() {
-        guard renderedWidgetCount > 0 else { return }
-        if skipVisibilityCheck {
-            skipVisibilityCheck = false
-            return
-        }
-        if statusItemIsVisible() {
-            if probeInFlight {
-                probeInFlight = false
-                NSLog("MenuGauge: restore probe succeeded, \(hiddenWidgetCount) widget(s) still hidden")
-                probeRestore(forced: true)
-            }
-            return
-        }
-        probeInFlight = false
-        hiddenWidgetCount += 1
-        // Freshly degraded: wait before probing again.
-        lastProbeAttempt = Date()
-        NSLog("MenuGauge: menu bar full, hiding rightmost widget (\(hiddenWidgetCount) hidden)")
-        updateStatusBar()
+        let canHide = MenuBarDisplay.canHideAnotherMetric(
+            visibleMetricCount: overflow.renderedWidgetCount)
+        let outcome = overflow.checkVisibility(isVisible: statusItemIsVisible(),
+                                                now: Date(),
+                                                canHideAnotherMetric: canHide)
+        applyOverflow(outcome)
     }
 
     /// Tries to reveal one more suppressed widget. Fails safe: if the
@@ -529,14 +615,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func probeRestore(forced: Bool) {
-        guard hiddenWidgetCount > 0, !probeInFlight, !skipVisibilityCheck else { return }
-        let now = Date()
-        guard forced || now.timeIntervalSince(lastProbeAttempt) >= 30 else { return }
-        lastProbeAttempt = now
-        hiddenWidgetCount -= 1
-        probeInFlight = true
-        NSLog("MenuGauge: probing menu bar space (\(hiddenWidgetCount) widget(s) still hidden)")
-        updateStatusBar()
+        let outcome = overflow.probeRestore(forced: forced, now: Date())
+        applyOverflow(outcome)
+    }
+
+    private func applyOverflow(_ outcome: MenuBarOverflow.Outcome) {
+        for event in outcome.events {
+            switch event {
+            case .probeSucceeded(let stillHidden):
+                NSLog("MenuGauge: restore probe succeeded, \(stillHidden) widget(s) still hidden")
+            case .degraded(let hiddenCount):
+                NSLog("MenuGauge: menu bar full, hiding rightmost widget (\(hiddenCount) hidden)")
+            case .probing(let stillHidden):
+                NSLog("MenuGauge: probing menu bar space (\(stillHidden) widget(s) still hidden)")
+            }
+        }
+        if outcome.needsRelayout {
+            updateStatusBar()
+        }
     }
 
     /// Whether the status item is actually drawn in the menu bar.
@@ -556,14 +652,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     // MARK: - Actions
 
     private func setMetric(_ id: String, enabled: Bool) {
-        guard providers.contains(where: { $0.id == id }) else { return }
-        var selection = selectedIDs.filter { $0 != id }
-        if enabled { selection.append(id) }
-        selectedIDs = selection
-        panelModel.selectedIDs = selection
-        hiddenWidgetCount = 0
-        probeInFlight = false
+        let known = Set(providers.map(\.id)).union([MetricCatalog.logoID])
+        let edit = MenuBarSelection.toggle(id, enabled: enabled, in: selectedIDs, knownIDs: known)
+        if edit.rejectedLastItem {
+            noteLastItemRejected()
+            return
+        }
+        guard edit.selection != selectedIDs else { return }
+        selectedIDs = edit.selection
+        panelModel.selectedIDs = edit.selection
+        minimumHint.noteSelectionCount(edit.selection.count, at: Date())
+        publishMinimumHint()
+        overflow.resetForSelectionChange()
         updateStatusBar()
+    }
+
+    private func noteLastItemRejected() {
+        minimumHint.noteRejected(at: Date())
+        panelModel.selectionRevision += 1
+        publishMinimumHint(force: true)
+        minimumHintTimer?.invalidate()
+        let timer = Timer(timeInterval: MenuBarSelection.minimumHintDuration, repeats: false) { [weak self] _ in
+            self?.dismissMinimumHintIfDue()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        minimumHintTimer = timer
+    }
+
+    private func dismissMinimumHintIfDue() {
+        minimumHint.noteSelectionCount(selectedIDs.count, at: Date())
+        publishMinimumHint()
+    }
+
+    private func publishMinimumHint(force: Bool = false) {
+        let visible = minimumHint.visible
+        if force, panelModel.showsMinimumSelectionHint == visible {
+            panelModel.objectWillChange.send()
+        }
+        panelModel.showsMinimumSelectionHint = visible
+        if !visible { minimumHintTimer?.invalidate() }
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {

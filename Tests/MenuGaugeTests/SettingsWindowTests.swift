@@ -77,9 +77,13 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(L10n.string(.thermalSerious, language: "zh-Hans"), "过热")
         XCTAssertEqual(L10n.string(.thermalCritical, language: "zh-Hans"), "危急")
         XCTAssertEqual(L10n.string(.configHint, language: "en"),
-                       "Enabled metrics appear in the menu bar. Turn all off to show only the gauge icon.")
+                       "Enabled items appear in the menu bar, with the logo on the left. At least one stays on.")
         XCTAssertEqual(L10n.string(.configHint, language: "zh-Hans"),
-                       "开启后，指标会显示在顶部菜单栏。关闭所有指标时，仅显示仪表图标。")
+                       "开启的项目会显示在菜单栏，图标在最左侧。至少保留一项。")
+        XCTAssertEqual(L10n.string(.logo, language: "en"), "Logo")
+        XCTAssertEqual(L10n.string(.logo, language: "zh-Hans"), "图标")
+        XCTAssertEqual(L10n.string(.selectAtLeastOne, language: "zh-Hans"), "请至少选择一项")
+        XCTAssertEqual(L10n.string(.selectAtLeastOne, language: "en"), "Select at least one")
         XCTAssertEqual(L10n.string(.loginPending, language: "zh-Hans"), "请在系统设置中允许开机自启动")
     }
 

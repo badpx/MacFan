@@ -58,12 +58,6 @@ enum StatusGauge {
     static let menuCenterlineRadius: Double = menuOuterRadius - menuBand / 2
     static let menuSegmentGap: Double = (menuClearGap + menuBand) / menuCenterlineRadius * 180 / .pi
 
-    /// The gauge replaces the metrics, the way the old fan symbol did.
-    /// It is shown only when the bar is not drawing any metric.
-    static func showsGauge(renderedMetricCount: Int) -> Bool {
-        renderedMetricCount <= 0
-    }
-
     /// Four clockwise spans along the arc, with a gap between each.
     static func segmentSpans(gap: Double = menuSegmentGap) -> [(start: CGFloat, end: CGFloat)] {
         let sweep = (arcSweep - gap * 3) / 4

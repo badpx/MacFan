@@ -18,9 +18,19 @@ struct SettingsView: View {
                     ForEach(MetricDescriptor.offered) { metric in
                         Toggle(metric.title, isOn: metricBinding(metric.id))
                             .toggleStyle(.switch)
+                            .id("\(metric.id)-\(model.selectionRevision)")
                     }
                 } header: {
-                    sectionHeader(L10n.tr(.showInMenu))
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        sectionHeader(L10n.tr(.showInMenu))
+                        if model.showsMinimumSelectionHint {
+                            Text(L10n.tr(.selectAtLeastOne))
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .textCase(nil)
                 } footer: {
                     Text(L10n.tr(.configHint))
                         .font(.system(size: 12))
@@ -140,6 +150,86 @@ private struct RunningHintCard: View {
     }
 }
 
+/// Settings window that does not show a focus ring until the user presses
+/// Tab. SwiftUI makes the first switch first responder when the window
+/// becomes key; that assignment is refused so the ring stays off. Tab
+/// still enters the key-view loop, because the window itself is first
+/// responder. A later click may focus the clicked control, without a ring,
+/// so the switch still toggles.
+final class SettingsWindow: NSWindow {
+    private var focus = SettingsFocusDecider()
+    private var clearingFocus = false
+    /// `NSEvent.timestamp` of the event that made the window key, or the
+    /// matching media time. A focus change caused by that same event is
+    /// not a click inside the window.
+    private var becameKeyAt: TimeInterval = -1
+
+    func disarmKeyboardFocus() {
+        focus.disarm()
+    }
+
+    override func becomeKey() {
+        becameKeyAt = NSApp.currentEvent?.timestamp ?? ProcessInfo.processInfo.systemUptime
+        super.becomeKey()
+    }
+
+    override func resignKey() {
+        focus.disarm()
+        super.resignKey()
+    }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 48 {
+            focus.noteTab()
+            setFocusRings(.default)
+        }
+        super.sendEvent(event)
+    }
+
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        if clearingFocus {
+            return super.makeFirstResponder(responder)
+        }
+        let decision = focus.decide(requestedView: responder is NSView,
+                                    userClickInside: userClickedInsideAfterOpen())
+        switch decision {
+        case .windowItself where responder is NSView:
+            clearingFocus = true
+            defer { clearingFocus = false }
+            return super.makeFirstResponder(nil)
+        case .windowItself:
+            return super.makeFirstResponder(responder)
+        case .control(let showRing):
+            if !showRing { setFocusRings(.none) }
+            if let view = responder as? NSView {
+                view.focusRingType = showRing ? .default : .none
+            }
+            return super.makeFirstResponder(responder)
+        }
+    }
+
+    private func userClickedInsideAfterOpen() -> Bool {
+        guard let event = NSApp.currentEvent else { return false }
+        switch event.type {
+        case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp:
+            break
+        default:
+            return false
+        }
+        guard event.timestamp > becameKeyAt, let contentView else { return false }
+        let point = contentView.convert(event.locationInWindow, from: nil)
+        return contentView.bounds.contains(point)
+    }
+
+    private func setFocusRings(_ type: NSFocusRingType, in root: NSView? = nil) {
+        guard let root = root ?? contentView else { return }
+        root.focusRingType = type
+        for subview in root.subviews {
+            setFocusRings(type, in: subview)
+        }
+    }
+}
+
 /// Owns the single Settings window. Closing it tells the delegate so the
 /// app can return to an accessory (menu-bar-only) activation policy.
 final class SettingsWindowController: NSObject, NSWindowDelegate {
@@ -158,6 +248,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func show() {
         let window = self.window ?? makeWindow()
         self.window = window
+        if !window.isVisible {
+            (window as? SettingsWindow)?.disarmKeyboardFocus()
+        }
         if window.isMiniaturized { window.deminiaturize(nil) }
         if !didCenter {
             window.center()
@@ -178,7 +271,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let size = Self.preferredContentSize()
-        let window = NSWindow(
+        let window = SettingsWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
@@ -188,6 +281,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.isRestorable = false
         window.collectionBehavior = window.collectionBehavior.union(.moveToActiveSpace)
         window.delegate = self
+        window.initialFirstResponder = nil
         window.contentMinSize = size
         window.contentMaxSize = size
         let host = NSHostingController(rootView: SettingsView(model: model, onQuit: { [weak self] in
@@ -197,6 +291,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         host.sizingOptions = .init()
         window.contentViewController = host
         window.setContentSize(size)
+        window.initialFirstResponder = nil
         return window
     }
 

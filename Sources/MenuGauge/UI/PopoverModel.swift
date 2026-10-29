@@ -19,6 +19,7 @@ struct MetricDescriptor: Identifiable {
     ] }
 
     /// Settings rows for this edition. The App Store build has no fan choice.
+    /// The logo is first in either edition.
     static var offered: [MetricDescriptor] {
         MetricCatalog.offeredDescriptors(appStore: AppEdition.isAppStore)
     }
@@ -40,6 +41,8 @@ enum AppEdition {
 /// edition inserts the SMC fan provider; the App Store edition leaves it out.
 enum MetricCatalog {
     static let fanID = "fan"
+    /// Menu-bar gauge. Stored in the same selection list as the metrics.
+    static let logoID = "logo"
 
     static func makeProviders(appStore: Bool) -> [MetricProvider] {
         var providers: [MetricProvider] = [
@@ -63,8 +66,9 @@ enum MetricCatalog {
     }
 
     static func offeredDescriptors(appStore: Bool) -> [MetricDescriptor] {
-        guard appStore else { return MetricDescriptor.all }
-        return MetricDescriptor.all.filter { $0.id != fanID }
+        let metrics = appStore ? MetricDescriptor.all.filter { $0.id != fanID } : MetricDescriptor.all
+        let logo = MetricDescriptor(id: logoID, title: L10n.tr(.logo), symbol: "gauge.with.needle")
+        return [logo] + metrics
     }
 
     /// A saved fan choice from the direct edition must not count in the
@@ -87,6 +91,11 @@ final class PopoverModel: ObservableObject {
     /// Measured height of the scrollable page content, reported by the view.
     /// 0 until the first layout pass.
     @Published var contentHeight: CGFloat = 0
+    /// Grey caption beside the menu-bar section title. Set when the user
+    /// tries to turn off the last remaining item.
+    @Published var showsMinimumSelectionHint = false
+    /// Bumped when that attempt is rejected, so the switch is rebuilt on.
+    @Published var selectionRevision = 0
     var onSelection: ((String, Bool) -> Void)?
     var onLogin: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
