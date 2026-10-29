@@ -8,6 +8,18 @@ enum PopoverPreview {
     private final class PreviewWindow: NSWindow {
         override var canBecomeKey: Bool { true }
     }
+
+    private struct Scenario {
+        var name: String
+        var appearance: NSAppearance.Name
+        var width: CGFloat
+        var height: CGFloat
+        var settings: Bool
+        var heat = false
+        var unavailable = false
+        var login: LoginItem.State = .enabled
+    }
+
     static func run(output: String) {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
@@ -23,10 +35,11 @@ enum PopoverPreview {
             "fan": .init(menu: "", value: .fan(0)),
             "network": .init(menu: "", value: .network(download: 32_100, upload: 10_200)),
         ]
-        let controller = NSHostingController(rootView: PopoverView(model: model))
-        let window = PreviewWindow(contentRect: NSRect(x: 100, y: 100, width: 384, height: 302),
-                              styleMask: [.borderless], backing: .buffered, defer: false)
-        window.contentViewController = controller
+        let panel = NSHostingController(rootView: PopoverView(model: model))
+        let settings = NSHostingController(rootView: SettingsView(model: model, onQuit: {}))
+        let window = PreviewWindow(contentRect: NSRect(x: 100, y: 100, width: 384, height: 330),
+                                   styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentViewController = panel
         window.isReleasedWhenClosed = false
         app.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -34,41 +47,51 @@ enum PopoverPreview {
         do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
         catch { fputs("\(error)\n", stderr); exit(1) }
 
-        let scenarios: [(String, NSAppearance.Name, PopoverPage, CGFloat)] = [
-            ("native-light", .aqua, .overview, 302),
-            ("native-dark", .darkAqua, .overview, 302),
-            ("native-settings", .aqua, .configuration, 500),
-            ("native-heat", .darkAqua, .overview, 302),
-            ("native-unavailable", .aqua, .overview, 302),
-            ("native-short-screen", .aqua, .overview, 240),
+        let scenarios: [Scenario] = [
+            .init(name: "native-light", appearance: .aqua, width: 384, height: 330, settings: false),
+            .init(name: "native-dark", appearance: .darkAqua, width: 384, height: 330, settings: false),
+            .init(name: "native-heat", appearance: .darkAqua, width: 384, height: 330, settings: false, heat: true),
+            .init(name: "native-unavailable", appearance: .aqua, width: 384, height: 330, settings: false, unavailable: true),
+            .init(name: "native-short-screen", appearance: .aqua, width: 384, height: 240, settings: false),
+            .init(name: "native-settings", appearance: .aqua, width: 520, height: 760, settings: true),
+            .init(name: "native-settings-dark", appearance: .darkAqua, width: 520, height: 760, settings: true),
+            .init(name: "native-settings-pending", appearance: .aqua, width: 520, height: 760, settings: true,
+                  login: .requiresApproval),
         ]
         var index = 0
         func next() {
             guard index < scenarios.count else { window.close(); exit(0) }
-            let (name, appearance, page, height) = scenarios[index]
-            window.appearance = NSAppearance(named: appearance)
-            model.page = page
-            model.height = height
-            if name == "native-heat" {
+            let scenario = scenarios[index]
+            window.appearance = NSAppearance(named: scenario.appearance)
+            model.loginState = scenario.login
+            model.loginError = nil
+            model.height = scenario.height
+            model.readings["temperature"] = .init(menu: "", value: .temperature(51.9))
+            model.readings["memory"] = .init(menu: "", value: .capacity(used: 24.2, total: 32))
+            model.readings["fan"] = .init(menu: "", value: .fan(0))
+            model.readings["network"] = .init(menu: "", value: .network(download: 32_100, upload: 10_200))
+            if scenario.heat {
                 model.readings["temperature"] = .init(menu: "", heat: 0.74, value: .temperature(82.4))
                 model.readings["memory"] = .init(menu: "", heat: 0.5, value: .capacity(used: 27.2, total: 32))
                 model.readings["fan"] = .init(menu: "", value: .fan(2000))
             }
-            if name == "native-unavailable" {
+            if scenario.unavailable {
                 model.readings["fan"] = .init(menu: "")
                 model.readings["network"] = .init(menu: "", value: .network(download: nil, upload: 10_200))
             }
-            window.setContentSize(NSSize(width: 384, height: height))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                let view = controller.view
+            window.contentViewController = scenario.settings ? settings : panel
+            window.setContentSize(NSSize(width: scenario.width, height: scenario.height))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                let view = window.contentViewController?.view ?? panel.view
                 view.layoutSubtreeIfNeeded()
                 window.displayIfNeeded()
                 guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(1) }
                 view.cacheDisplay(in: view.bounds, to: bitmap)
                 guard let png = bitmap.representation(using: .png, properties: [:]) else { exit(1) }
-                do { try png.write(to: directory.appendingPathComponent(name + ".png")) }
+                do { try png.write(to: directory.appendingPathComponent(scenario.name + ".png")) }
                 catch { fputs("\(error)\n", stderr); exit(1) }
-                print("Rendered \(name) (content \(model.contentHeight)pt -> popover \(ceil(model.contentHeight + 73))pt)")
+                let chrome = PopoverView.chromeHeight
+                print("Rendered \(scenario.name) (content \(model.contentHeight)pt -> popover \(ceil(model.contentHeight + chrome))pt)")
                 index += 1
                 next()
             }

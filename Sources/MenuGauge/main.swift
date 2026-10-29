@@ -1,6 +1,8 @@
 import AppKit
 
 #if DEBUG
+// Leaves before the single-instance handoff, and that handoff also ignores
+// this flag, so a snapshot can render while MenuGauge is already running.
 if let flag = CommandLine.arguments.firstIndex(of: "--ui-snapshot"),
    CommandLine.arguments.indices.contains(flag + 1) {
     PopoverPreview.run(output: CommandLine.arguments[flag + 1])
@@ -54,5 +56,5 @@ if CommandLine.arguments.contains("--smoke") {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.accessory) // menu bar only, no Dock icon
+app.setActivationPolicy(.accessory) // menu bar only until Settings opens
 app.run()
