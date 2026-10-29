@@ -2,8 +2,11 @@ import SwiftUI
 
 enum PanelPalette {
     static let card = adaptive(0xFFFFFF, 0x2B2D31)
-    /// White veil over the popover material. Header and footer stay clear so
-    /// they are the same surface as the arrow; this makes the metrics lighter.
+    /// Experiment off: the metrics area is the same popover material as the
+    /// header, footer, and arrow. Set this to true to restore the lighter veil.
+    static let showsContentLift = false
+    /// White veil over the popover material. Unused while `showsContentLift`
+    /// is false.
     static let contentLift = Color(nsColor: NSColor(name: nil) { appearance in
         let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         return NSColor.white.withAlphaComponent(dark ? 0.07 : 0.62)
@@ -161,7 +164,7 @@ struct PopoverView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scrollContentBackground(.hidden)
-            .background(PanelPalette.contentLift)
+            .background(PanelPalette.showsContentLift ? PanelPalette.contentLift : Color.clear)
             footer
         }
         .font(.system(size: 13))
