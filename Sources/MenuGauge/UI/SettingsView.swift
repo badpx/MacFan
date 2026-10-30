@@ -9,7 +9,10 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // No model inputs, so SwiftUI would skip its body on a language
+            // change; pin it to the resolved language to force a rebuild.
             RunningHintCard()
+                .id(L10n.language)
                 .padding(.bottom, 2)
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -139,16 +142,30 @@ struct SettingsView: View {
 }
 
 private struct RunningHintCard: View {
+    /// Rows reserved for the text column: two title lines at 13pt plus
+    /// four detail lines at 12pt. Longer translations scale down via
+    /// minimumScaleFactor instead of stretching the card; shorter ones
+    /// leave the extra rows blank.
+    private static let titleHeight: CGFloat = 2 * 16
+    private static let detailHeight: CGFloat = 4 * 15
+
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             MenuBarHintArt()
             VStack(alignment: .leading, spacing: 4) {
                 Text(L10n.tr(.runningTitle))
                     .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(height: Self.titleHeight)
                 Text(L10n.tr(.runningDetail))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(4)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(height: Self.detailHeight)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

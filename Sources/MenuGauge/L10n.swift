@@ -61,8 +61,10 @@ enum L10n {
         table[language]?[key] != nil
     }
 
-    /// First supported entry in the user's preferred language list.
-    private static let systemLanguage: String = {
+    /// First supported entry in the user's preferred language list. Computed on
+    /// each access so a system language change while the app is running takes
+    /// effect on the next UI refresh.
+    private static var systemLanguage: String {
         for code in Locale.preferredLanguages {
             let lower = code.lowercased()
             if lower.hasPrefix("zh") {
@@ -77,7 +79,7 @@ enum L10n {
             }
         }
         return "en"
-    }()
+    }
 
     /// UserDefaults key for the Settings language picker. Empty means the
     /// language follows the system.

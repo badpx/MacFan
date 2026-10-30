@@ -236,6 +236,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let providers: [MetricProvider] = MetricCatalog.makeProviders(appStore: AppEdition.isAppStore)
     /// Latest reading per provider id, refreshed every timer tick.
     private var readings: [String: MetricReading] = [:]
+    /// Resolved UI language at the last tick. Used to detect a system
+    /// language change while running when the picker follows the system.
+    private var lastLanguage = L10n.language
 
     // MARK: Menu bar overflow (graceful degradation)
 
@@ -419,6 +422,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func refresh() {
         for provider in providers { readings[provider.id] = provider.sample() }
+        // A macOS system-language change does not reach the picker, so
+        // re-check here: redraw AppKit chrome and SwiftUI views when the
+        // resolved language flips under "follow system".
+        if L10n.language != lastLanguage {
+            lastLanguage = L10n.language
+            refreshLocalizedChrome()
+            panelModel.objectWillChange.send()
+        }
         if case .percent(let cpu) = readings["cpu"]?.value {
             gauge.noteCPU(cpu)
         } else {
