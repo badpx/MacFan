@@ -17,6 +17,29 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            sectionHeader(L10n.tr(.showInMenu))
+                            if model.showsMinimumSelectionHint {
+                                Text(L10n.tr(.selectAtLeastOne))
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5),
+                                  spacing: 8) {
+                            ForEach(MetricDescriptor.offered) { metric in
+                                MetricCard(metric: metric,
+                                           selected: model.selectedIDs.contains(metric.id),
+                                           reading: model.readings[metric.id]) {
+                                    model.onSelection?(metric.id, !model.selectedIDs.contains(metric.id))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
                         sectionHeader(L10n.tr(.general))
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -56,33 +79,11 @@ struct SettingsView: View {
                                 }
                                 .labelsHidden()
                                 .pickerStyle(.menu)
+                                .controlSize(.small)
                                 .fixedSize()
                             }
                         }
                         // One character in from the header, both sides.
-                        .padding(.horizontal, 14)
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            sectionHeader(L10n.tr(.showInMenu))
-                            if model.showsMinimumSelectionHint {
-                                Text(L10n.tr(.selectAtLeastOne))
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5),
-                                  spacing: 8) {
-                            ForEach(MetricDescriptor.offered) { metric in
-                                MetricCard(metric: metric,
-                                           selected: model.selectedIDs.contains(metric.id),
-                                           reading: model.readings[metric.id]) {
-                                    model.onSelection?(metric.id, !model.selectedIDs.contains(metric.id))
-                                }
-                            }
-                        }
                         .padding(.horizontal, 14)
                     }
 
@@ -189,8 +190,20 @@ private struct MetricCard: View {
     let reading: MetricReading?
     let action: () -> Void
 
-    private static let logoImage = StatusGaugeImage.paintedImage(
-        for: MenuBarHintArt.gaugeKey, color: .labelColor)
+    /// Card fill: #F8F8F8 over the light window, a hair of white over the
+    /// dark one.
+    private static let fill = Color(nsColor: NSColor(name: nil) { appearance in
+        if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+            return NSColor.white.withAlphaComponent(0.09)
+        }
+        return NSColor(white: 0.973, alpha: 1)
+    })
+
+    /// Painted per render so a light/dark switch re-resolves labelColor
+    /// (the drawing handler runs against the current appearance).
+    private var logoImage: NSImage {
+        StatusGaugeImage.paintedImage(for: MenuBarHintArt.gaugeKey, color: .labelColor)
+    }
 
     var body: some View {
         Button(action: action) {
@@ -207,9 +220,9 @@ private struct MetricCard: View {
                 .padding(.top, 10)
                 .padding(.bottom, 8)
                 checkbox
-                    .padding(3)
+                    .padding(1)
             }
-            .background(Color(red: 0.973, green: 0.973, blue: 0.973),
+            .background(Self.fill,
                         in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
@@ -233,7 +246,7 @@ private struct MetricCard: View {
 
     @ViewBuilder private var preview: some View {
         if metric.id == MetricCatalog.logoID {
-            Image(nsImage: Self.logoImage)
+            Image(nsImage: logoImage)
         } else if let compact = reading?.compact {
             if compact.uniformFont {
                 VStack(spacing: 2) {

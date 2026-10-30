@@ -86,8 +86,8 @@ final class SettingsWindowTests: XCTestCase {
         for (language, phrase) in expected {
             XCTAssertEqual(L10n.string(.launchAtLogin, language: language), phrase, language)
         }
-        XCTAssertEqual(L10n.string(.showInMenu, language: "zh-Hans"), "状态栏显示")
-        XCTAssertEqual(L10n.string(.showInMenu, language: "en"), "Show in status bar")
+        XCTAssertEqual(L10n.string(.showInMenu, language: "zh-Hans"), "菜单栏显示")
+        XCTAssertEqual(L10n.string(.showInMenu, language: "en"), "Show in menu bar")
     }
 
     func testExistingThermalCopyAndConfigHintStayPut() {
@@ -118,8 +118,8 @@ final class SettingsWindowTests: XCTestCase {
                           L10n.string(.runningDetail, language: "en"))
         XCTAssertEqual(L10n.string(.quitShort, language: "zh-Hans"), "退出")
         XCTAssertEqual(L10n.string(.quit, language: "zh-Hans"), "退出 MenuGauge")
-        XCTAssertEqual(L10n.string(.quitStatusBar, language: "zh-Hans"), "退出状态栏")
-        XCTAssertEqual(L10n.string(.quitStatusBar, language: "en"), "Quit Status Bar")
+        XCTAssertEqual(L10n.string(.quitStatusBar, language: "zh-Hans"), "退出")
+        XCTAssertEqual(L10n.string(.quitStatusBar, language: "en"), "Quit")
         XCTAssertEqual(L10n.string(.general, language: "zh-Hans"), "通用")
         XCTAssertEqual(L10n.string(.general, language: "zh-Hant"), "一般")
         XCTAssertEqual(L10n.string(.website, language: "zh-Hans"), "官网")
