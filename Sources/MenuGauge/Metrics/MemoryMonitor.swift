@@ -24,7 +24,7 @@ final class MemoryMonitor: MetricProvider {
                           percent)
         return MetricReading(menu: menu,
                              compact: CompactReading(top: String(format: "%.0f%%", percent),
-                                                     bottom: "MEM",
+                                                     bottom: "RAM",
                                                      topWidthTemplate: "100%"),
                              heat: heat,
                              value: .capacity(used: Double(used) / 1_073_741_824,

@@ -215,14 +215,16 @@ struct PopoverView: View {
         return MetricFormat.number(scalar, decimals: 0) + "%"
     }
 
-    /// Direct edition shows °C. The App Store edition stores a thermal
-    /// state instead, and must not fall through to "N/A" for a missing scalar.
+    /// Direct edition shows a degree value in the unit chosen in Settings.
+    /// The App Store edition stores a thermal state instead, and must not
+    /// fall through to "N/A" for a missing scalar.
     private var temperatureValue: String {
         if case .thermal(let pressure) = model.readings["temperature"]?.value {
             return L10n.tr(pressure.labelKey)
         }
         guard let scalar = model.readings["temperature"]?.value?.scalar else { return "N/A" }
-        return MetricFormat.number(scalar, decimals: 0) + "°C"
+        let unit = TemperatureUnit.current
+        return MetricFormat.number(unit.convert(scalar), decimals: 0) + unit.symbol
     }
 
     private var temperatureCaption: String {

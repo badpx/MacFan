@@ -80,4 +80,12 @@ final class TemperatureMonitorTests: XCTestCase {
         XCTAssertEqual(ThermalPressure.trapping.compactToken, "HOT")
         XCTAssertEqual(ThermalPressure.sleeping.compactToken, "MAX")
     }
+
+    func testTemperatureUnitConversion() {
+        XCTAssertEqual(TemperatureUnit.celsius.symbol, "°C")
+        XCTAssertEqual(TemperatureUnit.fahrenheit.symbol, "°F")
+        XCTAssertEqual(TemperatureUnit.celsius.convert(100), 100)
+        XCTAssertEqual(TemperatureUnit.fahrenheit.convert(100), 212, accuracy: 0.001)
+        XCTAssertEqual(TemperatureUnit.fahrenheit.convert(0), 32, accuracy: 0.001)
+    }
 }

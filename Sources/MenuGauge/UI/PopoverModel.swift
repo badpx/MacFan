@@ -96,10 +96,29 @@ final class PopoverModel: ObservableObject {
     @Published var showsMinimumSelectionHint = false
     /// Bumped when that attempt is rejected, so the switch is rebuilt on.
     @Published var selectionRevision = 0
+    /// Settings language picker: "" follows the system. Persisted in
+    /// L10n.override; the change callback refreshes AppKit chrome (menu
+    /// titles, window title) that SwiftUI does not redraw.
+    @Published var languageOverride = L10n.override {
+        didSet {
+            guard languageOverride != oldValue else { return }
+            L10n.override = languageOverride
+            onLanguageChange?()
+        }
+    }
+    /// Settings temperature-unit picker; persisted under
+    /// `TemperatureUnit.defaultsKey`. Direct edition only.
+    @Published var temperatureUnit = TemperatureUnit.current {
+        didSet {
+            guard temperatureUnit != oldValue else { return }
+            UserDefaults.standard.set(temperatureUnit.rawValue, forKey: TemperatureUnit.defaultsKey)
+        }
+    }
     var onSelection: ((String, Bool) -> Void)?
     var onLogin: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
     var onOpenSettings: (() -> Void)?
+    var onLanguageChange: (() -> Void)?
 }
 
 enum MetricFormat {

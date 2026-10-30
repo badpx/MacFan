@@ -48,23 +48,46 @@ final class SettingsWindowTests: XCTestCase {
         }
     }
 
-    func testOpenAtLoginUsesSystemSettingsWording() {
+    func testLanguageOverrideBeatsTheSystemAndBadValuesFallBack() {
+        let saved = L10n.override
+        defer { L10n.override = saved }
+        L10n.override = "fr"
+        XCTAssertEqual(L10n.language, "fr")
+        XCTAssertEqual(L10n.tr(.language), "Langue")
+        L10n.override = "tlh" // not translated
+        XCTAssertNotEqual(L10n.language, "tlh")
+        L10n.override = ""
+        XCTAssertEqual(L10n.displayName("zh-Hans"), "简体中文")
+        XCTAssertEqual(L10n.displayName("pt"), "Português")
+    }
+
+    func testSettingsCopyForLanguageAndUnitRows() {
+        XCTAssertEqual(L10n.string(.language, language: "zh-Hans"), "语言")
+        XCTAssertEqual(L10n.string(.followSystem, language: "zh-Hans"), "跟随系统")
+        XCTAssertEqual(L10n.string(.temperatureUnit, language: "zh-Hans"), "温度单位")
+        XCTAssertEqual(L10n.string(.followSystem, language: "en"), "Follow System")
+        XCTAssertEqual(L10n.string(.temperatureUnit, language: "ja"), "温度単位")
+    }
+
+    func testLaunchAtLoginCopy() {
         let expected = [
-            "en": "Open at Login",
-            "zh-Hans": "登录时打开",
-            "zh-Hant": "在登入時打開",
-            "ja": "ログイン時に開く",
-            "ko": "로그인 시 열기",
-            "hi": "लॉगइन पर खोलें",
-            "es": "Abrir al iniciar sesión",
-            "fr": "Ouvrir à la connexion",
-            "pt": "Abrir ao iniciar sessão",
-            "ru": "Открывать при входе",
-            "bn": "লগইনে খুলুন",
+            "en": "Start at Login",
+            "zh-Hans": "登录时启动",
+            "zh-Hant": "登入時啟動",
+            "ja": "ログイン時に起動",
+            "ko": "로그인 시 시작",
+            "hi": "लॉगइन पर शुरू करें",
+            "es": "Iniciar al iniciar sesión",
+            "fr": "Démarrer à la connexion",
+            "pt": "Iniciar ao iniciar sessão",
+            "ru": "Запускать при входе",
+            "bn": "লগইনে চালু করুন",
         ]
         for (language, phrase) in expected {
             XCTAssertEqual(L10n.string(.launchAtLogin, language: language), phrase, language)
         }
+        XCTAssertEqual(L10n.string(.showInMenu, language: "zh-Hans"), "状态栏显示")
+        XCTAssertEqual(L10n.string(.showInMenu, language: "en"), "Show in status bar")
     }
 
     func testExistingThermalCopyAndConfigHintStayPut() {
@@ -95,6 +118,8 @@ final class SettingsWindowTests: XCTestCase {
                           L10n.string(.runningDetail, language: "en"))
         XCTAssertEqual(L10n.string(.quitShort, language: "zh-Hans"), "退出")
         XCTAssertEqual(L10n.string(.quit, language: "zh-Hans"), "退出 MenuGauge")
+        XCTAssertEqual(L10n.string(.quitStatusBar, language: "zh-Hans"), "退出状态栏")
+        XCTAssertEqual(L10n.string(.quitStatusBar, language: "en"), "Quit Status Bar")
         XCTAssertEqual(L10n.string(.general, language: "zh-Hans"), "通用")
         XCTAssertEqual(L10n.string(.general, language: "zh-Hant"), "一般")
         XCTAssertEqual(L10n.string(.website, language: "zh-Hans"), "官网")

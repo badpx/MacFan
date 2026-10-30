@@ -57,6 +57,10 @@ final class MetricPresentationTests: XCTestCase {
         XCTAssertEqual(ThermalPressure.sleeping.compactToken, "MAX")
     }
 
+    func testMemoryCompactLabelIsRAM() {
+        XCTAssertEqual(MemoryMonitor().sample().compact?.bottom, "RAM")
+    }
+
     func testUnavailableAndZeroNetworkRatesRemainDistinct() {
         XCTAssertEqual(MetricFormat.rate(nil).value, "N/A")
         XCTAssertEqual(MetricFormat.rate(nil).unit, "")

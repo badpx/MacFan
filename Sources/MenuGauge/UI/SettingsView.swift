@@ -10,65 +10,94 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             RunningHintCard()
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
                 .padding(.bottom, 2)
-            Form {
-                Section {
-                    ForEach(MetricDescriptor.offered) { metric in
-                        Toggle(metric.title, isOn: metricBinding(metric.id))
-                            .toggleStyle(.switch)
-                            .id("\(metric.id)-\(model.selectionRevision)")
-                    }
-                } header: {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        sectionHeader(L10n.tr(.showInMenu))
-                        if model.showsMinimumSelectionHint {
-                            Text(L10n.tr(.selectAtLeastOne))
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionHeader(L10n.tr(.general))
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(L10n.tr(.launchAtLogin))
+                                Spacer()
+                                Toggle(L10n.tr(.launchAtLogin), isOn: loginBinding)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                                    .controlSize(.mini)
+                            }
+                            if model.loginState == .requiresApproval {
+                                Button(L10n.tr(.systemSettings)) { LoginItem.openSettings() }
+                                    .buttonStyle(.link)
+                            }
+                            if !AppEdition.isAppStore {
+                                HStack {
+                                    Text(L10n.tr(.temperatureUnit))
+                                    Spacer()
+                                    Picker(L10n.tr(.temperatureUnit), selection: $model.temperatureUnit) {
+                                        Text("°C").tag(TemperatureUnit.celsius)
+                                        Text("°F").tag(TemperatureUnit.fahrenheit)
+                                    }
+                                    .labelsHidden()
+                                    .pickerStyle(.segmented)
+                                    .controlSize(.small)
+                                    .fixedSize()
+                                }
+                            }
+                            HStack {
+                                Text(L10n.tr(.language))
+                                Spacer()
+                                Picker(L10n.tr(.language), selection: $model.languageOverride) {
+                                    Text(L10n.tr(.followSystem)).tag("")
+                                    ForEach(L10n.translatedLanguages, id: \.self) { code in
+                                        Text(L10n.displayName(code)).tag(code)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
+                                .fixedSize()
+                            }
                         }
+                        // One character in from the header, both sides.
+                        .padding(.horizontal, 14)
                     }
-                    .textCase(nil)
-                } footer: {
-                    Text(L10n.tr(.configHint))
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
 
-                Section {
-                    Toggle(isOn: loginBinding) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.tr(.launchAtLogin))
-                            Text(loginDetail)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            sectionHeader(L10n.tr(.showInMenu))
+                            if model.showsMinimumSelectionHint {
+                                Text(L10n.tr(.selectAtLeastOne))
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5),
+                                  spacing: 8) {
+                            ForEach(MetricDescriptor.offered) { metric in
+                                MetricCard(metric: metric,
+                                           selected: model.selectedIDs.contains(metric.id),
+                                           reading: model.readings[metric.id]) {
+                                    model.onSelection?(metric.id, !model.selectedIDs.contains(metric.id))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 14)
                     }
-                    .toggleStyle(.switch)
-                    if model.loginState == .requiresApproval {
-                        Button(L10n.tr(.systemSettings)) { LoginItem.openSettings() }
-                            .buttonStyle(.link)
-                    }
-                } header: {
-                    sectionHeader(L10n.tr(.general))
-                }
 
-                Section {
-                    about
-                } header: {
-                    sectionHeader(L10n.tr(.about))
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionHeader(L10n.tr(.about))
+                        about
+                            .padding(.horizontal, 14)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .formStyle(.grouped)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             HStack {
                 Spacer()
-                Button(L10n.tr(.quit), action: onQuit)
+                Button(L10n.tr(.quitStatusBar), action: onQuit)
                     .menuGaugeButtonChrome()
             }
             .padding(.horizontal, 20)
@@ -87,36 +116,15 @@ struct SettingsView: View {
             .textCase(nil)
     }
 
-    private func metricBinding(_ id: String) -> Binding<Bool> {
-        Binding(get: { model.selectedIDs.contains(id) },
-                set: { model.onSelection?(id, $0) })
-    }
-
     private var loginBinding: Binding<Bool> {
         Binding(get: { model.loginState == .enabled || model.loginState == .requiresApproval },
                 set: { model.onLogin?($0) })
     }
 
-    private var loginDetail: String {
-        if let error = model.loginError { return error }
-        switch model.loginState {
-        case .requiresApproval: return L10n.tr(.loginPending)
-        case .unavailable: return L10n.tr(.loginUnavailable)
-        default: return L10n.tr(.loginHint)
-        }
-    }
-
     private var about: some View {
         HStack(alignment: .center, spacing: 8) {
             AppIconGlyph(size: 28)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(AppIdentity.versionLabel)
-                if !AppEdition.isAppStore {
-                    Text(L10n.tr(.websiteEdition))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(AppIdentity.versionLabel)
             Spacer(minLength: 12)
             HStack(spacing: 6) {
                 Link(L10n.tr(.privacyPolicy), destination: MenuGaugeLinks.privacy)
@@ -132,7 +140,7 @@ struct SettingsView: View {
 
 private struct RunningHintCard: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             MenuBarHintArt()
             VStack(alignment: .leading, spacing: 4) {
                 Text(L10n.tr(.runningTitle))
@@ -144,9 +152,92 @@ private struct RunningHintCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(12)
-        .background(PanelPalette.tint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        // Flush with the window edges: no dark ring around this header.
+        .background(PanelPalette.tint)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// One selectable metric in the settings grid: checkbox at the top-right,
+/// a live preview of its menu-bar reading in the middle, and the metric
+/// name below. Tapping anywhere toggles; the model may refuse the change
+/// (at least one item must stay selected), so the checkbox always renders
+/// from `selected` rather than local state.
+private struct MetricCard: View {
+    let metric: MetricDescriptor
+    let selected: Bool
+    let reading: MetricReading?
+    let action: () -> Void
+
+    private static let logoImage = StatusGaugeImage.paintedImage(
+        for: MenuBarHintArt.gaugeKey, color: .labelColor)
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: 4) {
+                    preview
+                        .frame(height: 30)
+                    Text(metric.title)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                checkbox
+                    .padding(3)
+            }
+            .background(Color(red: 0.973, green: 0.973, blue: 0.973),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(metric.title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    @ViewBuilder private var checkbox: some View {
+        if selected {
+            Image(systemName: "checkmark.square.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, PanelPalette.accent)
+                .font(.system(size: 15))
+        } else {
+            Image(systemName: "square")
+                .foregroundStyle(.secondary.opacity(0.55))
+                .font(.system(size: 15))
+        }
+    }
+
+    @ViewBuilder private var preview: some View {
+        if metric.id == MetricCatalog.logoID {
+            Image(nsImage: Self.logoImage)
+        } else if let compact = reading?.compact {
+            if compact.uniformFont {
+                VStack(spacing: 2) {
+                    Text(compact.top)
+                    Text(compact.bottom)
+                }
+                .font(.system(size: 9, weight: .medium))
+            } else {
+                VStack(spacing: 1) {
+                    Text(compact.top)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(compact.bottom)
+                        .font(.system(size: 7.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else {
+            Text("--")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -245,9 +336,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     var isVisible: Bool { window?.isVisible == true }
 
+    /// Picked up after a language change while the window is open.
+    func refreshTitle() {
+        window?.title = L10n.tr(.settingsTitle)
+    }
+
     func show() {
         let window = self.window ?? makeWindow()
         self.window = window
+        refreshTitle()
         if !window.isVisible {
             (window as? SettingsWindow)?.disarmKeyboardFocus()
         }
@@ -295,10 +392,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return window
     }
 
-    /// Wide enough for the grouped form (~520). Tall enough that the
-    /// approved layout fits; a short display scrolls inside the form.
+    /// Narrow enough that the five metric cards end up nearly square, and
+    /// just tall enough for the header card, three sections, and the quit
+    /// row; a short display scrolls inside the form.
     static func preferredContentSize(visibleHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 800) -> NSSize {
-        let height = min(760, max(520, visibleHeight - 28))
-        return NSSize(width: 520, height: height)
+        let height = min(540, max(440, visibleHeight - 28))
+        return NSSize(width: 440, height: height)
     }
 }

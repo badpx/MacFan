@@ -294,6 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         panelModel.onLogin = { [weak self] enabled in self?.setLaunchAtLogin(enabled) }
         panelModel.onQuit = { [weak self] in self?.quit() }
         panelModel.onOpenSettings = { [weak self] in self?.showSettings() }
+        panelModel.onLanguageChange = { [weak self] in self?.refreshLocalizedChrome() }
         settings.onQuit = { [weak self] in self?.quit() }
         settings.onClose = { [weak self] in self?.settingsWindowDidClose() }
         installMainMenu()
@@ -802,6 +803,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     @objc private func showSettingsFromMenu(_ sender: Any?) {
         showSettings()
+    }
+
+    /// AppKit chrome that SwiftUI does not redraw on a language change:
+    /// main-menu item titles and the Settings window title.
+    private func refreshLocalizedChrome() {
+        if let appMenu = NSApp.mainMenu?.items.first?.submenu {
+            appMenu.items.first?.title = L10n.tr(.settings) + "…"
+            appMenu.items.last?.title = L10n.tr(.quit)
+        }
+        if let windowMenu = NSApp.windowsMenu {
+            windowMenu.title = L10n.tr(.windowMenu)
+            windowMenu.items.first?.title = L10n.tr(.closeWindow)
+        }
+        settings.refreshTitle()
     }
 
     @objc private func quitFromMenu(_ sender: Any?) {

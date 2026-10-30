@@ -3,6 +3,25 @@ import Foundation
 import Darwin
 #endif
 
+/// Display unit for temperature readings. SMC samples are Celsius and get
+/// converted at presentation time. The App Store edition has no degree
+/// data, so Settings hides this there.
+enum TemperatureUnit: String {
+    case celsius, fahrenheit
+
+    static let defaultsKey = "temperatureUnit"
+
+    static var current: TemperatureUnit {
+        TemperatureUnit(rawValue: UserDefaults.standard.string(forKey: defaultsKey) ?? "") ?? .celsius
+    }
+
+    var symbol: String { self == .celsius ? "°C" : "°F" }
+
+    func convert(_ celsius: Double) -> Double {
+        self == .celsius ? celsius : celsius * 9 / 5 + 32
+    }
+}
+
 /// CPU temperature using Lemon's model-specific SMC sensor selection.
 /// Apple Silicon reports the mean of valid readings; Intel probes CPU keys
 /// in priority order. Unrelated HID/PMU readings must not stand in for CPU data.
@@ -27,10 +46,16 @@ final class TemperatureMonitor: MetricProvider {
         // Warn from 75 °C (light orange) ramping to red at 85 °C.
         let heat: Double? = temperature >= 75
             ? min((temperature - 75) / 10, 1) : nil
-        return MetricReading(menu: String(format: "%@: %.1f °C", L10n.tr(.temperature), temperature),
-                             compact: CompactReading(top: String(format: "%.0f°", temperature),
+        let unit = TemperatureUnit.current
+        let shown = unit.convert(temperature)
+        // The unit letter rides in the menu bar so a switched unit is
+        // visible; no degree sign, keeping the widget one character narrower
+        // and the same width as the other 4-glyph metrics.
+        let unitLetter = unit == .celsius ? "C" : "F"
+        return MetricReading(menu: String(format: "%@: %.1f %@", L10n.tr(.temperature), shown, unit.symbol),
+                             compact: CompactReading(top: String(format: "%.0f%@", shown, unitLetter),
                                                      bottom: "TEMP",
-                                                     topWidthTemplate: "100°"),
+                                                     topWidthTemplate: "100C"),
                              heat: heat, value: .temperature(temperature))
         #endif
     }
