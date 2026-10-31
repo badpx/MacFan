@@ -90,11 +90,11 @@ bash Scripts/build.sh dmg
 
 沙盒会拒绝 AppleSMC 用户客户端。`com.apple.security.temporary-exception.iokit-user-client-class` 是已知的审核拒绝项，所以 **App Store 版在编译期去掉 SMC**，不申请这个例外。
 
-`swift build` 额外传入 `-Xswiftc -DMAS`。`SMC.swift` 整份在 `#if !MAS` 里。CPU 温度改为 `ProcessInfo.thermalState`。风扇指标不进入这个版本：
+`swift build` 额外传入 `-Xswiftc -DMAS`。`SMC.swift` 整份在 `#if !MAS` 里。CPU 温度改为 thermald 的热压力（notifyd 五级，`ProcessInfo.thermalState` 作为回退）。风扇指标不进入这个版本：
 
-- 弹出面板的大号温度位显示本地化的热状态（正常 / 偏高 / 过热 / 危急，以及其余语言），标题改为「热状态」，不再显示 °C。
+- 弹出面板的大号温度位显示本地化的热压力状态（正常 / 偏高 / 很高 / 过热 / 危急，以及其余语言），标题改为「热状态」，不再显示 °C。
 - 概览没有风扇一行，设置里也没有风扇开关。已保存的 `menuBarMetrics` 若包含 `fan`，启动时去掉，避免计数和降级逻辑把它算进去。
-- 菜单栏用固定短词 `OK` / `MID` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`。
+- 菜单栏用固定短词 `OK` / `MID` / `HI` / `HOT` / `MAX`，避免长翻译把状态项撑宽。温度在下标 `TEMP`。
 - `MenuGauge --fandump` 在这个二进制里直接退出。
 
 CPU、GPU、内存、磁盘、网速的采样代码不变。GPU 只读 `IOAccelerator` 的公开注册表属性，不 `IOServiceOpen`。沙盒里如果读不到，界面本来就会显示 `--`，不要为此加临时例外。
@@ -307,11 +307,11 @@ The staple is on the dmg. After the app is copied to Applications, Gatekeeper ch
 
 The sandbox refuses the AppleSMC user client. An `iokit-user-client-class` temporary exception is a known review rejection, so the **App Store edition omits SMC at compile time** and does not request that exception.
 
-`swift build` passes `-Xswiftc -DMAS`. All of `SMC.swift` is inside `#if !MAS`. CPU temperature becomes `ProcessInfo.thermalState`. The fan metric is absent from this edition:
+`swift build` passes `-Xswiftc -DMAS`. All of `SMC.swift` is inside `#if !MAS`. CPU temperature becomes thermald's five-level thermal pressure (via notifyd, with `ProcessInfo.thermalState` as a fallback). The fan metric is absent from this edition:
 
-- The large temperature figure shows the localized thermal state, captioned as thermal state, not °C. Simplified Chinese uses 正常 / 偏高 / 过热 / 危急.
+- The large temperature figure shows the localized thermal pressure state, captioned as thermal state, not °C. Simplified Chinese uses 正常 / 偏高 / 很高 / 过热 / 危急.
 - There is no fan row in the overview and no fan switch in Settings. A saved `menuBarMetrics` entry of `fan` is removed at launch so the count and overflow logic do not reserve it.
-- The menu bar uses the fixed tokens `OK` / `MID` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`.
+- The menu bar uses the fixed tokens `OK` / `MID` / `HI` / `HOT` / `MAX` so a long translation does not resize the status item. Temperature is labeled `TEMP`.
 - `MenuGauge --fandump` exits immediately in this binary.
 
 CPU, GPU, memory, disk and network sampling are unchanged. GPU reads public `IOAccelerator` registry properties and does not call `IOServiceOpen`. If the sandbox hides that dictionary, the UI already shows `--`. Do not add a temporary exception to force it.

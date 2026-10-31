@@ -71,8 +71,8 @@ enum PopoverPreview {
             model.readings["fan"] = .init(menu: "", value: .fan(0))
             model.readings["network"] = .init(menu: "", value: .network(download: 32_100, upload: 10_200))
             if scenario.heat {
-                model.readings["temperature"] = .init(menu: "", heat: 0.74, value: .temperature(82.4))
-                model.readings["memory"] = .init(menu: "", heat: 0.5, value: .capacity(used: 27.2, total: 32))
+                model.readings["temperature"] = .init(menu: "", heat: ThermalPressure.trapping.heat, value: .temperature(82.4))
+                model.readings["memory"] = .init(menu: "", heat: 0, value: .capacity(used: 27.2, total: 32))
                 model.readings["fan"] = .init(menu: "", value: .fan(2000))
             }
             if scenario.unavailable {

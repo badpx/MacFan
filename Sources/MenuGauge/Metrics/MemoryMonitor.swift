@@ -3,19 +3,24 @@ import Darwin.Mach
 
 /// Physical memory usage via host_statistics64. "Used" follows the
 /// Activity Monitor convention: app memory + wired + compressed.
+/// The text color follows system memory pressure, not the usage
+/// percentage; a 90 %-full Mac is not necessarily under pressure.
 final class MemoryMonitor: MetricProvider {
 
     let id = "memory"
 
     private let totalBytes = ProcessInfo.processInfo.physicalMemory
+    private let pressure: () -> MemoryPressure
+
+    init(pressure: @escaping () -> MemoryPressure = { MemoryPressure.current }) {
+        self.pressure = pressure
+    }
 
     func sample() -> MetricReading {
         guard let used = usedBytes() else { return MetricReading(menu: "\(L10n.tr(.memory)): --") }
 
         let percent = Double(used) / Double(totalBytes) * 100.0
-        // Warn from 80 % used (light orange) ramping to red at 90 %.
-        let heat: Double? = percent >= 80
-            ? min((percent - 80) / 10, 1) : nil
+        let heat = pressure().heat
         let menu = String(format: "%@: %.1f / %.0f GB (%@ %.0f%%)",
                           L10n.tr(.memory),
                           Double(used) / 1_073_741_824.0,

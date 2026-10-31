@@ -26,10 +26,20 @@ enum TemperatureUnit: String {
 /// Apple Silicon reports the mean of valid readings; Intel probes CPU keys
 /// in priority order. Unrelated HID/PMU readings must not stand in for CPU data.
 /// The Mac App Store edition (`-DMAS`) has no SMC client and reports
-/// `ProcessInfo.thermalState` instead of a degree value.
+/// thermald's thermal pressure instead of a degree value.
+///
+/// Text color follows thermald's pressure in both editions. The direct
+/// edition still shows SMC degrees; the App Store edition replaces the
+/// degree value with the pressure state.
 final class TemperatureMonitor: MetricProvider {
 
     let id = "temperature"
+
+    private let pressure: () -> ThermalPressure
+
+    init(pressure: @escaping () -> ThermalPressure = { ThermalPressure.current }) {
+        self.pressure = pressure
+    }
 
     #if !MAS
     private let smc = try? SMC()
@@ -38,14 +48,19 @@ final class TemperatureMonitor: MetricProvider {
 
     func sample() -> MetricReading {
         #if MAS
-        return Self.thermalReading(pressure: .current)
+        return Self.thermalReading(pressure: pressure())
         #else
         guard let temperature = Self.cpuTemperature(chipName: chipName, read: { smc?.temperature($0) }) else {
             return MetricReading(menu: "\(L10n.tr(.temperature)): --")
         }
-        // Warn from 75 °C (light orange) ramping to red at 85 °C.
-        let heat: Double? = temperature >= 75
-            ? min((temperature - 75) / 10, 1) : nil
+        return Self.degreeReading(temperature: temperature, pressure: pressure())
+        #endif
+    }
+
+    /// Direct edition's degree reading. The color comes from pressure, not
+    /// from the degree value; a hot CPU at nominal pressure stays normal,
+    /// and a cool CPU under trapping pressure is already red.
+    static func degreeReading(temperature: Double, pressure: ThermalPressure) -> MetricReading {
         let unit = TemperatureUnit.current
         let shown = unit.convert(temperature)
         // The unit letter rides in the menu bar so a switched unit is
@@ -56,8 +71,7 @@ final class TemperatureMonitor: MetricProvider {
                              compact: CompactReading(top: String(format: "%.0f%@", shown, unitLetter),
                                                      bottom: "TEMP",
                                                      topWidthTemplate: "100C"),
-                             heat: heat, value: .temperature(temperature))
-        #endif
+                             heat: pressure.heat, value: .temperature(temperature))
     }
 
     /// App Store stand-in for °C. The direct edition does not use this in

@@ -68,6 +68,21 @@ final class TemperatureMonitorTests: XCTestCase {
         XCTAssertFalse(reading.menu.contains("°"))
     }
 
+    func testDegreeReadingColorComesFromThermalPressure() {
+        let hotButNominal = TemperatureMonitor.degreeReading(temperature: 95, pressure: .nominal)
+        XCTAssertNil(hotButNominal.heat)
+        XCTAssertEqual(hotButNominal.value?.scalar, 95)
+        XCTAssertTrue(hotButNominal.menu.contains("°"))
+
+        let coolButTrapping = TemperatureMonitor.degreeReading(temperature: 40, pressure: .trapping)
+        XCTAssertEqual(coolButTrapping.heat, ThermalPressure.trapping.heat)
+        XCTAssertEqual(coolButTrapping.value?.scalar, 40)
+        XCTAssertTrue(coolButTrapping.menu.contains("°"))
+
+        let critical = TemperatureMonitor.degreeReading(temperature: 40, pressure: .sleeping)
+        XCTAssertEqual(critical.heat, ThermalPressure.sleeping.heat)
+    }
+
     func testThermalRampMatchesSeverity() {
         XCTAssertNil(ThermalPressure.nominal.heat)
         XCTAssertEqual(ThermalPressure.moderate.heat, 0.35)
