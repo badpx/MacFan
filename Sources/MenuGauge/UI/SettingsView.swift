@@ -12,6 +12,11 @@ struct SettingsView: View {
     /// padding) plus the quit row (4 + ~28 button + 16 padding).
     static let fixedChromeHeight: CGFloat = 170
 
+    /// Vertical gap between a section title and the controls below it.
+    private enum SettingsLayout {
+        static let sectionHeaderSpacing: CGFloat = 12
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // No model inputs, so SwiftUI would skip its body on a language
@@ -21,7 +26,7 @@ struct SettingsView: View {
                 .padding(.bottom, 2)
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: SettingsLayout.sectionHeaderSpacing) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             sectionHeader(L10n.tr(.showInMenu))
                             if model.showsMinimumSelectionHint {
@@ -44,7 +49,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 14)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: SettingsLayout.sectionHeaderSpacing) {
                         sectionHeader(L10n.tr(.general))
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
@@ -108,7 +113,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 14)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: SettingsLayout.sectionHeaderSpacing) {
                         sectionHeader(L10n.tr(.about))
                         about
                             .padding(.horizontal, 14)
