@@ -310,6 +310,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             .store(in: &cancellables)
         NotificationCenter.default.addObserver(self, selector: #selector(refreshLoginState),
                                                name: NSApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidResignActive),
+                                               name: NSApplication.didResignActiveNotification, object: nil)
 
         // Warm up delta-based samplers (CPU/network need two samples),
         // then take the first real reading 1s later.
@@ -509,6 +511,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     @objc private func refreshLoginState() {
         guard popover.isShown || settings.isVisible else { return }
         panelModel.loginState = LoginItem.state
+    }
+
+    /// A transient popover normally closes itself when the app deactivates,
+    /// but with the Settings window open the app is a regular app and AppKit
+    /// leaves the popover up when another app becomes active. Close it here
+    /// so a click outside both the popover and Settings dismisses the menu.
+    @objc private func appDidResignActive() {
+        if popover.isShown { popover.performClose(nil) }
     }
 
     // MARK: - Menu bar widgets
