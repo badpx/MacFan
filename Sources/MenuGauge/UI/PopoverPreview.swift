@@ -53,9 +53,9 @@ enum PopoverPreview {
             .init(name: "native-heat", appearance: .darkAqua, width: 384, height: 330, settings: false, heat: true),
             .init(name: "native-unavailable", appearance: .aqua, width: 384, height: 330, settings: false, unavailable: true),
             .init(name: "native-short-screen", appearance: .aqua, width: 384, height: 240, settings: false),
-            .init(name: "native-settings", appearance: .aqua, width: 520, height: 760, settings: true),
-            .init(name: "native-settings-dark", appearance: .darkAqua, width: 520, height: 760, settings: true),
-            .init(name: "native-settings-pending", appearance: .aqua, width: 520, height: 760, settings: true,
+            .init(name: "native-settings", appearance: .aqua, width: 440, height: 643, settings: true),
+            .init(name: "native-settings-dark", appearance: .darkAqua, width: 440, height: 643, settings: true),
+            .init(name: "native-settings-pending", appearance: .aqua, width: 440, height: 643, settings: true,
                   login: .requiresApproval),
         ]
         var index = 0

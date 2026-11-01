@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// One scrolling settings page. Native grouped form, fixed width.
@@ -6,6 +7,10 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var model: PopoverModel
     var onQuit: () -> Void
+
+    /// Window chrome outside the scrollable form: hint card (120 + 2
+    /// padding) plus the quit row (4 + ~28 button + 16 padding).
+    static let fixedChromeHeight: CGFloat = 170
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,20 +59,21 @@ struct SettingsView: View {
                                 Button(L10n.tr(.systemSettings)) { LoginItem.openSettings() }
                                     .buttonStyle(.link)
                             }
-                            if !AppEdition.isAppStore {
-                                HStack {
-                                    Text(L10n.tr(.temperatureUnit))
-                                    Spacer()
-                                    Picker(L10n.tr(.temperatureUnit), selection: $model.temperatureUnit) {
-                                        Text("°C").tag(TemperatureUnit.celsius)
-                                        Text("°F").tag(TemperatureUnit.fahrenheit)
-                                    }
-                                    .labelsHidden()
-                                    .pickerStyle(.segmented)
-                                    .controlSize(.small)
-                                    .fixedSize()
+                            generalRowSeparator
+                            HStack {
+                                Text(L10n.tr(.theme))
+                                Spacer()
+                                Picker(L10n.tr(.theme), selection: $model.appearanceOverride) {
+                                    Text(L10n.tr(.themeAuto)).tag(AppearanceOverride.auto)
+                                    Text(L10n.tr(.themeLight)).tag(AppearanceOverride.light)
+                                    Text(L10n.tr(.themeDark)).tag(AppearanceOverride.dark)
                                 }
+                                .labelsHidden()
+                                .pickerStyle(.segmented)
+                                .controlSize(.small)
+                                .fixedSize()
                             }
+                            generalRowSeparator
                             HStack {
                                 Text(L10n.tr(.language))
                                 Spacer()
@@ -81,6 +87,21 @@ struct SettingsView: View {
                                 .pickerStyle(.menu)
                                 .controlSize(.small)
                                 .fixedSize()
+                            }
+                            if !AppEdition.isAppStore {
+                                generalRowSeparator
+                                HStack {
+                                    Text(L10n.tr(.temperatureUnit))
+                                    Spacer()
+                                    Picker(L10n.tr(.temperatureUnit), selection: $model.temperatureUnit) {
+                                        Text("°C").tag(TemperatureUnit.celsius)
+                                        Text("°F").tag(TemperatureUnit.fahrenheit)
+                                    }
+                                    .labelsHidden()
+                                    .pickerStyle(.segmented)
+                                    .controlSize(.small)
+                                    .fixedSize()
+                                }
                             }
                         }
                         // One character in from the header, both sides.
@@ -96,6 +117,9 @@ struct SettingsView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { value in
+                    model.settingsContentHeight = value
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -118,6 +142,11 @@ struct SettingsView: View {
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.primary)
             .textCase(nil)
+    }
+
+    /// Hairline between General rows, matching the popover separators.
+    private var generalRowSeparator: some View {
+        Rectangle().fill(PanelPalette.line).frame(height: 1)
     }
 
     private var loginBinding: Binding<Bool> {
@@ -359,9 +388,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     var onClose: (() -> Void)?
     private var window: NSWindow?
     private var didCenter = false
+    private var cancellables: Set<AnyCancellable> = []
 
     init(model: PopoverModel) {
         self.model = model
+        super.init()
+        // Keep the window exactly as tall as the form: once the scrollable
+        // content is measured, grow or shrink the fixed window so nothing
+        // ever needs to scroll (unless the screen itself is too short).
+        model.$settingsContentHeight
+            .sink { [weak self] _ in self?.fitWindowToContent() }
+            .store(in: &cancellables)
     }
 
     var isVisible: Bool { window?.isVisible == true }
@@ -371,10 +408,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.title = L10n.tr(.settingsTitle)
     }
 
+    /// Applies the theme override; nil restores the system appearance.
+    func applyAppearance(_ override: AppearanceOverride) {
+        window?.appearance = override.nsAppearance
+    }
+
     func show() {
         let window = self.window ?? makeWindow()
         self.window = window
         refreshTitle()
+        fitWindowToContent()
         if !window.isVisible {
             (window as? SettingsWindow)?.disarmKeyboardFocus()
         }
@@ -396,6 +439,22 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         onClose?()
     }
 
+    /// Resizes the fixed window to the measured form height plus the
+    /// header card and quit row, capped by the visible screen height.
+    private func fitWindowToContent() {
+        guard let window, model.settingsContentHeight > 0 else { return }
+        let visibleHeight = window.screen?.visibleFrame.height
+            ?? NSScreen.main?.visibleFrame.height ?? 800
+        let height = min(SettingsView.fixedChromeHeight + ceil(model.settingsContentHeight),
+                         max(440, visibleHeight - 28))
+        let size = NSSize(width: window.frame.width > 0 ? window.contentLayoutRect.width : 440,
+                          height: height)
+        guard window.contentMinSize != size else { return }
+        window.contentMinSize = size
+        window.contentMaxSize = size
+        window.setContentSize(size)
+    }
+
     private func makeWindow() -> NSWindow {
         let size = Self.preferredContentSize()
         let window = SettingsWindow(
@@ -404,6 +463,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false)
         window.title = L10n.tr(.settingsTitle)
+        window.appearance = model.appearanceOverride.nsAppearance
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.collectionBehavior = window.collectionBehavior.union(.moveToActiveSpace)
@@ -422,11 +482,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return window
     }
 
-    /// Narrow enough that the five metric cards end up nearly square, and
-    /// just tall enough for the header card, three sections, and the quit
-    /// row; a short display scrolls inside the form.
+    /// Initial size before the form is measured; `fitWindowToContent()`
+    /// then pins the window to the exact content height. Narrow enough
+    /// that the five metric cards end up nearly square.
     static func preferredContentSize(visibleHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 800) -> NSSize {
-        let height = min(540, max(440, visibleHeight - 28))
+        let height = min(640, max(440, visibleHeight - 28))
         return NSSize(width: 440, height: height)
     }
 }

@@ -288,7 +288,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         popover.delegate = self
-        popover.contentViewController = PopoverHostingController(rootView: PopoverView(model: panelModel))
+        popover.appearance = panelModel.appearanceOverride.nsAppearance
+        popover.contentViewController = NSHostingController(rootView: PopoverView(model: panelModel))
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
         gauge.onUpdate = { [weak self] in self?.applyGaugeAppearance() }
@@ -298,6 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         panelModel.onQuit = { [weak self] in self?.quit() }
         panelModel.onOpenSettings = { [weak self] in self?.showSettings() }
         panelModel.onLanguageChange = { [weak self] in self?.refreshLocalizedChrome() }
+        panelModel.onAppearanceChange = { [weak self] in self?.applyAppearanceOverride() }
         settings.onQuit = { [weak self] in self?.quit() }
         settings.onClose = { [weak self] in self?.settingsWindowDidClose() }
         installMainMenu()
@@ -818,8 +820,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     /// AppKit chrome that SwiftUI does not redraw on a language change:
     /// main-menu item titles and the Settings window title.
-    private func refreshLocalizedChrome() {
-        if let appMenu = NSApp.mainMenu?.items.first?.submenu {
+    /// The theme override covers only the app's own windows; the menu bar
+    /// widgets keep following the system menu-bar appearance.
+    private func applyAppearanceOverride() {
+        let appearance = panelModel.appearanceOverride
+        popover.appearance = appearance.nsAppearance
+        settings.applyAppearance(appearance)
+    }
+
+    private func refreshLocalizedChrome() {        if let appMenu = NSApp.mainMenu?.items.first?.submenu {
             appMenu.items.first?.title = L10n.tr(.settings) + "…"
             appMenu.items.last?.title = L10n.tr(.quit)
         }

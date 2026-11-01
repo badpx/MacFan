@@ -1,16 +1,8 @@
 import SwiftUI
 
 enum PanelPalette {
+    static let background = adaptive(0xF5F6F8, 0x202225)
     static let card = adaptive(0xFFFFFF, 0x2B2D31)
-    /// Metrics sit on a light veil. Header and footer stay clear so they match
-    /// the popover arrow. Set this to false to try an all-material panel.
-    static let showsContentLift = true
-    /// White veil over the popover material. Applied when `showsContentLift`
-    /// is true.
-    static let contentLift = Color(nsColor: NSColor(name: nil) { appearance in
-        let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        return NSColor.white.withAlphaComponent(dark ? 0.07 : 0.62)
-    })
     static let secondary = adaptive(0x626972, 0xADB3BC)
     static let line = adaptive(0xDFE2E7, 0x41444B)
     static let accent = adaptive(0x147A67, 0x71D5BA)
@@ -104,30 +96,6 @@ struct MenuGaugeIconButton: View {
     }
 }
 
-/// The popover arrow is the system material behind the content. This view
-/// stays transparent so that material, including wallpaper vibrancy, shows
-/// through the header and footer instead of a painted color.
-private final class ClearHostingView<Content: View>: NSHostingView<Content> {
-    override var isOpaque: Bool { false }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.clear.cgColor
-    }
-
-    override func layout() {
-        super.layout()
-        layer?.backgroundColor = NSColor.clear.cgColor
-    }
-}
-
-final class PopoverHostingController: NSHostingController<PopoverView> {
-    override func loadView() {
-        view = ClearHostingView(rootView: rootView)
-    }
-}
-
 struct PopoverView: View {
     @ObservedObject var model: PopoverModel
 
@@ -165,12 +133,12 @@ struct PopoverView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scrollContentBackground(.hidden)
-            .background(PanelPalette.showsContentLift ? PanelPalette.contentLift : Color.clear)
             footer
         }
         .font(.system(size: 13))
         .foregroundStyle(Color.primary)
         .frame(width: 384, height: model.height)
+        .background(PanelPalette.background)
     }
 
     private var header: some View {

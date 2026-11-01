@@ -79,6 +79,29 @@ enum MetricCatalog {
     }
 }
 
+/// Appearance preference for the app's own windows (popover, Settings).
+/// The menu bar itself always follows the system, so the override is
+/// applied per window instead of through `NSApp.appearance`. Persisted
+/// under `defaultsKey`; `auto` follows the system appearance.
+enum AppearanceOverride: String {
+    case auto, light, dark
+
+    static let defaultsKey = "appearanceOverride"
+
+    static var current: AppearanceOverride {
+        AppearanceOverride(rawValue: UserDefaults.standard.string(forKey: defaultsKey) ?? "") ?? .auto
+    }
+
+    /// nil = inherit the system appearance.
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .auto: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 /// Shared by the menu-bar panel and the Settings window.
 /// Menu-bar drawing reads the providers directly and does not use this model.
 final class PopoverModel: ObservableObject {
@@ -91,6 +114,9 @@ final class PopoverModel: ObservableObject {
     /// Measured height of the scrollable page content, reported by the view.
     /// 0 until the first layout pass.
     @Published var contentHeight: CGFloat = 0
+    /// Measured height of the Settings form's scrollable content, reported
+    /// by SettingsView. 0 until the first layout pass.
+    @Published var settingsContentHeight: CGFloat = 0
     /// Grey caption beside the menu-bar section title. Set when the user
     /// tries to turn off the last remaining item.
     @Published var showsMinimumSelectionHint = false
@@ -114,11 +140,21 @@ final class PopoverModel: ObservableObject {
             UserDefaults.standard.set(temperatureUnit.rawValue, forKey: TemperatureUnit.defaultsKey)
         }
     }
+    /// Settings theme picker; persisted under `AppearanceOverride.defaultsKey`
+    /// and applied to the popover and Settings window via the callback.
+    @Published var appearanceOverride = AppearanceOverride.current {
+        didSet {
+            guard appearanceOverride != oldValue else { return }
+            UserDefaults.standard.set(appearanceOverride.rawValue, forKey: AppearanceOverride.defaultsKey)
+            onAppearanceChange?()
+        }
+    }
     var onSelection: ((String, Bool) -> Void)?
     var onLogin: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
     var onOpenSettings: (() -> Void)?
     var onLanguageChange: (() -> Void)?
+    var onAppearanceChange: (() -> Void)?
 }
 
 enum MetricFormat {
