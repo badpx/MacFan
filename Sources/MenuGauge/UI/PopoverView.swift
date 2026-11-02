@@ -1,14 +1,20 @@
 import SwiftUI
 
 enum PanelPalette {
-    static let background = adaptive(0xF5F6F8, 0x202225)
-    static let card = adaptive(0xFFFFFF, 0x2B2D31)
-    static let secondary = adaptive(0x626972, 0xADB3BC)
-    static let line = adaptive(0xDFE2E7, 0x41444B)
-    static let accent = adaptive(0x147A67, 0x71D5BA)
-    static let tint = adaptive(0xE4F2ED, 0x293F39)
+    static let background = adaptive(0xF7F9FA, 0x14181C)
+    static let card = adaptive(0xFFFFFF, 0x1C2227)
+    static let text = adaptive(0x182024, 0xE8F0F2)
+    static let secondary = adaptive(0x5F6B72, 0xA7B0B8)
+    static let line = adaptive(0xDFE5E8, 0x2A3035)
+    static let accent = adaptive(0x0E7C86, 0x5FCFDD)
+    static let onAccent = adaptive(0xFFFFFF, 0x071114)
+    static let tint = adaptive(0xE2F4F6, 0x14343A)
+    static let link = adaptive(0x0B63CE, 0x6CB6FF)
+    static let critical = adaptive(0xC7352B, 0xFF453A)
+    static let hintStart = adaptive(0xE6F6F8, 0x102A30)
+    static let hintEnd = adaptive(0xEDF1FB, 0x1B2230)
 
-    private static func adaptive(_ light: Int, _ dark: Int) -> Color {
+    static func adaptive(_ light: Int, _ dark: Int) -> Color {
         Color(NSColor(name: nil) { appearance in
             let hex = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
             return NSColor(srgbRed: CGFloat((hex >> 16) & 255) / 255,
@@ -18,13 +24,16 @@ enum PanelPalette {
     }
 }
 
-/// Bezel, control size, and tint of the Settings “Quit MenuGauge” button only.
+/// Bezel, control size, and destructive tint of the Settings “Quit MenuGauge”
+/// button only. `critical` is intentional: quitting is destructive, so the
+/// button reads as a warning action in both appearances.
 struct MenuGaugeButtonChrome: ViewModifier {
     func body(content: Content) -> some View {
         content
+            .foregroundStyle(PanelPalette.critical)
             .buttonStyle(.bordered)
             .controlSize(.regular)
-            .tint(PanelPalette.accent)
+            .tint(PanelPalette.critical)
     }
 }
 
@@ -35,16 +44,16 @@ extension View {
 }
 
 /// Gear and power. Resting state is the bare accent glyph. Hover and pressed
-/// reuse the light-green and darker fills of the tinted bordered button,
-/// as a square of one shared size. `accent` is already light/dark adaptive.
+/// use accent-tinted fills at increasing opacity inside one shared square;
+/// `accent` is already light/dark adaptive.
 enum MenuGaugeIconChrome: Equatable {
     case plain, hover, pressed
 
     static let side: CGFloat = 28
     static let corner: CGFloat = 7
-    /// Resting fill of a bordered button tinted with `PanelPalette.accent`.
+    /// Hover fill: a light accent wash.
     static let hoverOpacity: CGFloat = 0.18
-    /// That button’s pressed fill, a darker green in both appearances.
+    /// Pressed fill: a stronger accent wash, not a different hue.
     static let pressedOpacity: CGFloat = 0.42
 
     static func state(hovered: Bool, pressed: Bool) -> MenuGaugeIconChrome {
@@ -136,15 +145,18 @@ struct PopoverView: View {
             footer
         }
         .font(.system(size: 13))
-        .foregroundStyle(Color.primary)
+        .foregroundStyle(PanelPalette.text)
         .frame(width: 384, height: model.height)
         .background(PanelPalette.background)
     }
 
     private var header: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                AppIconGlyph(size: 18)
+            HStack(spacing: 10) {
+                AppIconGlyph(size: 20)
+                    .padding(4)
+                    .background(PanelPalette.tint,
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 Text("MenuGauge")
                     .font(.system(size: 14, weight: .semibold))
                 Spacer(minLength: 8)
@@ -205,13 +217,13 @@ struct PopoverView: View {
     private func stat(value: String, caption: String, heat: Double? = nil) -> some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(.system(size: 24, weight: .medium))
+                .font(.system(size: 26, weight: .semibold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .foregroundStyle(Color(MetricFormat.heatColor(heat)))
             Text(caption)
-                .font(.system(size: 11))
+                .font(.system(size: 10.5))
                 .foregroundStyle(PanelPalette.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -237,7 +249,7 @@ struct PopoverView: View {
     private var fanRow: some View {
         let rpm = model.readings["fan"]?.value?.scalar
         let value = rpm.map { MetricFormat.number($0, decimals: 0) + " RPM" } ?? "N/A"
-        return row(symbol: "fan") {
+        return row(symbol: "fan", accent: MetricAccent.color(for: "fan")) {
             Text("\(L10n.tr(.fan)) \(value)")
         }
     }
@@ -252,7 +264,7 @@ struct PopoverView: View {
             text = "\(word) \(MetricFormat.number(shown, decimals: decimals)) GB · " +
                    String(format: L10n.ui(.ofTotal), MetricFormat.number(total, decimals: 0))
         }
-        return row(symbol: symbol) {
+        return row(symbol: symbol, accent: MetricAccent.color(for: id)) {
             Text(text)
                 .foregroundStyle(Color(MetricFormat.heatColor(reading?.heat)))
         }
@@ -262,7 +274,7 @@ struct PopoverView: View {
         var down: Double?
         var up: Double?
         if case .network(let d, let u) = model.readings["network"]?.value { down = d; up = u }
-        return row(symbol: "arrow.up.arrow.down") {
+        return row(symbol: "arrow.up.arrow.down", accent: MetricAccent.color(for: "network")) {
             Text("↑ \(rateText(up))")
             Text("↓ \(rateText(down))")
                 .foregroundStyle(PanelPalette.secondary)
@@ -274,12 +286,12 @@ struct PopoverView: View {
         return rate.unit.isEmpty ? rate.value : "\(rate.value) \(rate.unit)"
     }
 
-    private func row<Content: View>(symbol: String,
+    private func row<Content: View>(symbol: String, accent: Color,
                                     @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 13))
-                .foregroundStyle(PanelPalette.secondary)
+                .font(.system(size: 14))
+                .foregroundStyle(accent)
                 .frame(width: 20)
             HStack(spacing: 14) { content() }
                 .font(.system(size: 13))
@@ -287,7 +299,7 @@ struct PopoverView: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .frame(minHeight: 32)
+        .frame(minHeight: 34)
         .accessibilityElement(children: .combine)
     }
 

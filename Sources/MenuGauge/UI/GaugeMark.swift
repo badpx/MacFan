@@ -25,7 +25,12 @@ struct MenuBarHintArt: View {
     /// Horizontal middle of the menu-bar sample. The arrow tip uses this x.
     static var ringCenter: CGPoint { CGPoint(x: artSize.width / 2, y: 26) }
     static let ringDiameter: CGFloat = 36
-    static let highlight = Color(red: 0.98, green: 0.80, blue: 0.22)
+    /// The hint art keeps the light-mode treatment in both appearances: a
+    /// pale sample card with a dark gauge reads clearly on the dark surface.
+    static let highlight = Color(red: 14.0 / 255.0, green: 124.0 / 255.0, blue: 134.0 / 255.0)
+    private static let artStart = Color(red: 211.0 / 255.0, green: 240.0 / 255.0, blue: 243.0 / 255.0)
+    private static let artEnd = Color(red: 231.0 / 255.0, green: 232.0 / 255.0, blue: 251.0 / 255.0)
+    private static let artInk = Color(red: 24.0 / 255.0, green: 32.0 / 255.0, blue: 36.0 / 255.0)
 
     /// Just outside the ring, under its center. The tail sits a short way
     /// below-left, the same offset the left-hand gauge used, so the curve
@@ -40,17 +45,17 @@ struct MenuBarHintArt: View {
     }
     static var arrowControl: CGPoint { CGPoint(x: arrowTip.x, y: arrowTip.y + 17) }
 
-    private static let gaugeImage = StatusGaugeImage.paintedImage(for: gaugeKey, color: .white)
+    private var gaugeImage: NSImage {
+        StatusGaugeImage.paintedImage(
+            for: Self.gaugeKey,
+            color: NSColor(srgbRed: 24.0 / 255.0, green: 32.0 / 255.0, blue: 36.0 / 255.0, alpha: 1))
+    }
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(LinearGradient(
-                    colors: [
-                        Color(red: 0.33, green: 0.27, blue: 0.58),
-                        Color(red: 0.62, green: 0.36, blue: 0.58),
-                        Color(red: 0.95, green: 0.58, blue: 0.42),
-                    ],
+                    colors: [Self.artStart, Self.artEnd],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing))
             CalloutArrow()
@@ -60,7 +65,7 @@ struct MenuBarHintArt: View {
                 Circle()
                     .stroke(Self.highlight, lineWidth: 2)
                     .frame(width: Self.ringDiameter, height: Self.ringDiameter)
-                Image(nsImage: Self.gaugeImage)
+                Image(nsImage: gaugeImage)
             }
             .position(Self.ringCenter)
             HStack(spacing: 4) {
@@ -69,7 +74,7 @@ struct MenuBarHintArt: View {
                 Text("9:41")
                     .font(.system(size: 9, weight: .semibold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Self.artInk)
             .position(x: Self.ringCenter.x + Self.ringDiameter / 2 + 26, y: Self.ringCenter.y)
         }
         .frame(width: Self.artSize.width, height: Self.artSize.height)

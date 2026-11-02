@@ -306,7 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Resize as soon as the view reports a new measured content height,
         // instead of waiting for the next 2s refresh tick.
         panelModel.$contentHeight
-            .sink { [weak self] _ in self?.resizePopover() }
+            .sink { [weak self] height in self?.resizePopover(contentHeight: height) }
             .store(in: &cancellables)
         NotificationCenter.default.addObserver(self, selector: #selector(refreshLoginState),
                                                name: NSApplication.didBecomeActiveNotification, object: nil)
@@ -488,13 +488,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// Sizes the popover to the measured content height plus the fixed
     /// chrome (header + footer), so every metric row fits exactly and no
     /// scroll bar appears. Falls back to an estimate before the first layout.
-    private func resizePopover() {
+    private func resizePopover(contentHeight: CGFloat? = nil) {
         let screen = statusItem.button?.window?.screen ?? NSScreen.main
         let available = max(300, (screen?.visibleFrame.height ?? 900) - 32)
         let chrome = PopoverView.chromeHeight
         let fallback: CGFloat = 330
-        let desired = panelModel.contentHeight > 0
-            ? ceil(panelModel.contentHeight + chrome) : fallback
+        let measured = contentHeight ?? panelModel.contentHeight
+        let desired = measured > 0
+            ? ceil(measured + chrome) : fallback
         let height = min(desired, available)
         if panelModel.height != height { panelModel.height = height }
         popover.contentSize = NSSize(width: 384, height: height)

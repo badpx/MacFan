@@ -15,6 +15,7 @@ struct SettingsView: View {
     /// Vertical gap between a section title and the controls below it.
     private enum SettingsLayout {
         static let sectionHeaderSpacing: CGFloat = 12
+        static let cardPadding: CGFloat = 14
     }
 
     var body: some View {
@@ -32,7 +33,7 @@ struct SettingsView: View {
                             if model.showsMinimumSelectionHint {
                                 Text(L10n.tr(.selectAtLeastOne))
                                     .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(PanelPalette.secondary)
                                     .lineLimit(1)
                             }
                         }
@@ -59,6 +60,7 @@ struct SettingsView: View {
                                     .toggleStyle(.switch)
                                     .labelsHidden()
                                     .controlSize(.mini)
+                                    .tint(PanelPalette.accent)
                             }
                             if model.loginState == .requiresApproval {
                                 Button(L10n.tr(.systemSettings)) { LoginItem.openSettings() }
@@ -77,6 +79,7 @@ struct SettingsView: View {
                                 .pickerStyle(.segmented)
                                 .controlSize(.small)
                                 .fixedSize()
+                                .tint(PanelPalette.accent)
                             }
                             generalRowSeparator
                             HStack {
@@ -92,6 +95,7 @@ struct SettingsView: View {
                                 .pickerStyle(.menu)
                                 .controlSize(.small)
                                 .fixedSize()
+                                .tint(PanelPalette.accent)
                             }
                             if !AppEdition.isAppStore {
                                 generalRowSeparator
@@ -106,11 +110,18 @@ struct SettingsView: View {
                                     .pickerStyle(.segmented)
                                     .controlSize(.small)
                                     .fixedSize()
+                                    .tint(PanelPalette.accent)
                                 }
                             }
                         }
-                        // One character in from the header, both sides.
-                        .padding(.horizontal, 14)
+                        // Inset the grouped rows from the section header.
+                        .padding(SettingsLayout.cardPadding)
+                        .background(PanelPalette.card,
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(PanelPalette.line, lineWidth: 1)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: SettingsLayout.sectionHeaderSpacing) {
@@ -121,6 +132,10 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
+                // Keep the form at its intrinsic height. Without this the
+                // ScrollView viewport can stretch the content, and the
+                // measured height keeps the window taller than the form.
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { value in
                     model.settingsContentHeight = value
@@ -138,14 +153,15 @@ struct SettingsView: View {
             .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(PanelPalette.background)
+        .foregroundStyle(PanelPalette.text)
         .tint(PanelPalette.accent)
     }
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(PanelPalette.text)
             .textCase(nil)
     }
 
@@ -166,11 +182,14 @@ struct SettingsView: View {
             Spacer(minLength: 12)
             HStack(spacing: 6) {
                 Link(L10n.tr(.privacyPolicy), destination: MenuGaugeLinks.privacy)
+                    .foregroundStyle(PanelPalette.link)
                 Text("·")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PanelPalette.secondary)
                 Link(L10n.tr(.website), destination: MenuGaugeLinks.website)
+                    .foregroundStyle(PanelPalette.link)
             }
             .font(.system(size: 12))
+            .tint(PanelPalette.link)
         }
         .padding(.vertical, 2)
     }
@@ -196,7 +215,7 @@ private struct RunningHintCard: View {
                     .frame(height: Self.titleHeight)
                 Text(L10n.tr(.runningDetail))
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PanelPalette.secondary)
                     .lineLimit(4)
                     .minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -208,7 +227,9 @@ private struct RunningHintCard: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         // Flush with the window edges: no dark ring around this header.
-        .background(PanelPalette.tint)
+        .background(LinearGradient(colors: [PanelPalette.hintStart, PanelPalette.hintEnd],
+                                   startPoint: .topLeading,
+                                   endPoint: .bottomTrailing))
         .accessibilityElement(children: .combine)
     }
 }
@@ -224,19 +245,14 @@ private struct MetricCard: View {
     let reading: MetricReading?
     let action: () -> Void
 
-    /// Card fill: #F8F8F8 over the light window, a hair of white over the
-    /// dark one.
-    private static let fill = Color(nsColor: NSColor(name: nil) { appearance in
-        if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-            return NSColor.white.withAlphaComponent(0.09)
-        }
-        return NSColor(white: 0.973, alpha: 1)
-    })
-
     /// Painted per render so a light/dark switch re-resolves labelColor
     /// (the drawing handler runs against the current appearance).
     private var logoImage: NSImage {
         StatusGaugeImage.paintedImage(for: MenuBarHintArt.gaugeKey, color: .labelColor)
+    }
+
+    private var cardFill: Color {
+        selected ? PanelPalette.tint : PanelPalette.card
     }
 
     var body: some View {
@@ -244,21 +260,34 @@ private struct MetricCard: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 4) {
                     preview
-                        .frame(height: 30)
-                    Text(metric.title)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                        .frame(height: 34)
+                    HStack(spacing: 4) {
+                        if metric.id != MetricCatalog.logoID {
+                            Circle()
+                                .fill(MetricAccent.color(for: metric.id))
+                                .frame(width: 5, height: 5)
+                        }
+                        Text(metric.title)
+                            .font(.system(size: 11))
+                            .foregroundStyle(PanelPalette.text)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
                 checkbox
-                    .padding(1)
+                    .padding(5)
             }
-            .background(Self.fill,
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(cardFill,
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(selected ? PanelPalette.accent : PanelPalette.line.opacity(0.55),
+                            lineWidth: 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(metric.title)
@@ -269,11 +298,11 @@ private struct MetricCard: View {
         if selected {
             Image(systemName: "checkmark.square.fill")
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, PanelPalette.accent)
+                .foregroundStyle(PanelPalette.onAccent, PanelPalette.accent)
                 .font(.system(size: 15))
         } else {
             Image(systemName: "square")
-                .foregroundStyle(.secondary.opacity(0.55))
+                .foregroundStyle(PanelPalette.secondary.opacity(0.55))
                 .font(.system(size: 15))
         }
     }
@@ -294,13 +323,13 @@ private struct MetricCard: View {
                         .font(.system(size: 13, weight: .semibold))
                     Text(compact.bottom)
                         .font(.system(size: 7.5, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(PanelPalette.secondary)
                 }
             }
         } else {
             Text("--")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PanelPalette.secondary)
         }
     }
 }
@@ -402,7 +431,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         // content is measured, grow or shrink the fixed window so nothing
         // ever needs to scroll (unless the screen itself is too short).
         model.$settingsContentHeight
-            .sink { [weak self] _ in self?.fitWindowToContent() }
+            .sink { [weak self] height in self?.fitWindowToContent(contentHeight: height) }
             .store(in: &cancellables)
     }
 
@@ -446,13 +475,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     /// Resizes the fixed window to the measured form height plus the
     /// header card and quit row, capped by the visible screen height.
-    private func fitWindowToContent() {
-        guard let window, model.settingsContentHeight > 0 else { return }
+    private func fitWindowToContent(contentHeight: CGFloat? = nil) {
+        guard let window else { return }
+        let measured = contentHeight ?? model.settingsContentHeight
+        guard measured > 0 else { return }
         let visibleHeight = window.screen?.visibleFrame.height
             ?? NSScreen.main?.visibleFrame.height ?? 800
-        let height = min(SettingsView.fixedChromeHeight + ceil(model.settingsContentHeight),
+        let height = min(SettingsView.fixedChromeHeight + ceil(measured),
                          max(440, visibleHeight - 28))
-        let size = NSSize(width: window.frame.width > 0 ? window.contentLayoutRect.width : 440,
+        let size = NSSize(width: window.frame.width > 0 ? window.contentLayoutRect.width : 500,
                           height: height)
         guard window.contentMinSize != size else { return }
         window.contentMinSize = size
@@ -488,10 +519,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Initial size before the form is measured; `fitWindowToContent()`
-    /// then pins the window to the exact content height. Narrow enough
-    /// that the five metric cards end up nearly square.
+    /// then pins the window to the exact content height. Wide enough
+    /// that the five metric cards keep the checkbox clear of the value.
     static func preferredContentSize(visibleHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 800) -> NSSize {
         let height = min(640, max(440, visibleHeight - 28))
-        return NSSize(width: 440, height: height)
+        return NSSize(width: 500, height: height)
     }
 }
